@@ -110,21 +110,85 @@ This generates `dist/microg-minimal-v0.3.17-skeleton.zip` and verifies zip struc
 
 ---
 
-## Version Bump Procedure
+---
 
-All component versions, download URLs, and cryptographic hashes are governed by `versions.env`.
+## Mantenimiento / Update Flow
 
-To update the module:
-1. Update `versions.env`:
-   - Set `GMS_VERSION`, `GMS_RELEASE_TAG`, and `GMS_URL`.
-   - Update `GMS_SHA256` with the checksum from the new release.
-   - Set `VENDING_VERSION`, `VENDING_RELEASE_TAG`, `VENDING_URL`, and `VENDING_SHA256`.
-   - Update `MODULE_VERSION` and increment `MODULE_VERSION_CODE`.
-2. Synchronize `update.json`:
-   - Update `version` and `versionCode` to match `versions.env`.
-   - Point `zipUrl` to the newly published release asset URL.
-3. Update `CHANGELOG.md` with release notes.
-4. Run `./scripts/build-module.sh` to assemble the new release package.
+### Upstream Source
+Monitor upstream releases on GitHub:
+- [microG GmsCore Releases](https://github.com/microg/GmsCore/releases)
+
+### Single-Command Update
+When a new upstream release drops, execute the single bump command from the repository root:
+
+```bash
+# Check status without writing any files
+./scripts/check-upstream.sh
+# or
+./scripts/bump-microg.sh --check
+
+# Execute the full automated bump for the latest release
+./scripts/bump-microg.sh --latest
+
+# Or target a specific upstream release tag explicitly
+./scripts/bump-microg.sh v0.3.18.252432
+```
+
+### Complete Maintenance Workflow
+1. **Detect Upstream Release**:
+   Run `./scripts/check-upstream.sh` (or inspect the microG releases page). The script exits `0` when up-to-date, `2` when an update is available, or `1` on error.
+2. **Execute Bump Script**:
+   Run `./scripts/bump-microg.sh --latest`.
+   The script autonomously:
+   - Resolves upstream assets dynamically by prefix (`com.google.android.gms-*.apk` and `com.android.vending-*.apk`).
+   - Downloads payloads into `${XDG_CACHE_HOME:-~/.cache}/microg-minimal`.
+   - Computes SHA-256 checksums and exact byte sizes.
+   - Rewrites owned fields in `versions.env`.
+   - Synchronizes `module.prop` and `update.json`.
+   - Updates the Last-Known-Good table in `README.md` and appends a release entry to `CHANGELOG.md`.
+   - Invokes `./scripts/fetch-apks.sh` and `./scripts/build-module.sh` to package `dist/microg-minimal-<version>.zip`.
+   - Generates multi-hash integrity records (`dist/checksums-<version>.txt`) and standard checksums (`dist/SHA256SUMS.txt`).
+3. **Review Changes**:
+   Verify the local diff before committing:
+   ```bash
+   git diff
+   ```
+4. **Commit the Changes**:
+   ```bash
+   git add versions.env module.prop update.json README.md CHANGELOG.md
+   git commit -m "chore(microg): bump upstream microG to <version>"
+   ```
+5. **Tag the Release**:
+   ```bash
+   git tag <version>
+   ```
+6. **Push to GitHub**:
+   ```bash
+   git push origin main
+   git push origin <version>
+   ```
+   Pushing the tag triggers the `.github/workflows/release.yml` GitHub Actions pipeline. CI verifies shell syntax, fetches binaries, packages the flashable module zip, computes multi-hash checksums, and publishes the GitHub Release with attached assets.
+
+### Numeric Version Code Scheme
+`versionCode` is computed using the deterministic formula:
+```text
+versionCode = (MAJOR * 100000) + (MINOR * 10000) + (PATCH * 10) + SUBPATCH
+```
+- Current baseline: `v0.3.17` -> `(0 * 100000) + (3 * 10000) + (17 * 10) + 0` = `30170`.
+- Incremental example: `v0.3.18` -> `(0 * 100000) + (3 * 10000) + (18 * 10) + 0` = `30180`.
+- Subpatch example: `v0.3.16.1` -> `(0 * 100000) + (3 * 10000) + (16 * 10) + 1` = `30161`.
+
+### update.json Synchronization
+The `zipUrl` in `update.json` points to:
+`https://github.com/kveld/microg-minimal/releases/download/<version>/microg-minimal-<version>.zip`
+This URL matches the GitHub Release tag created in step 5, ensuring Magisk update checks locate the published archive.
+
+### Handling Upstream Asset Naming Changes
+Upstream microG GmsCore releases publish standard APKs matching:
+- GmsCore: `com.google.android.gms-*.apk` (excluding `-hw.apk` Huawei variants and `.asc` signatures).
+- Phonesky: `com.android.vending-*.apk` (excluding `-hw.apk` Huawei variants and `.asc` signatures).
+
+If microG upstream alters asset naming patterns, `scripts/check-upstream.sh` and `scripts/bump-microg.sh` fail loudly with an explicit error message instead of guessing URLs. To adapt, update the asset matching rules in `scripts/lib-upstream.sh` (`parse_release_assets` function).
 
 ---
 
@@ -133,5 +197,5 @@ To update the module:
 Magisk checks `update.json` via the URL specified in `module.prop` (`updateJson` property).
 
 When publishing a new release:
-1. Upload `dist/microg-minimal-v<version>.zip` to GitHub Releases.
+1. Pushing tag `v*` triggers `.github/workflows/release.yml` which uploads `dist/microg-minimal-v<version>.zip` to GitHub Releases.
 2. Ensure `update.json` in the default branch reflects the release version, numeric version code, and the direct download URL in `zipUrl`.

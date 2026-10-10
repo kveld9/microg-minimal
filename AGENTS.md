@@ -23,3 +23,11 @@ This repository maintains the minimal systemless Magisk module skeleton, downloa
    - Never hardcode user home directories (`/home/...`) or host-specific paths.
    - Always derive repository root dynamically (`REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"`).
    - All shell scripts must maintain `bash -n` validation, pass `set -euo pipefail`, and keep cyclomatic complexity low (CC <= 5) with early guard returns.
+
+5. **Upstream Update Automation**:
+   - `scripts/bump-microg.sh` is the sole programmatic owner of `versions.env` rewrites besides human maintainers.
+   - Never hand-edit generated checksum files (`dist/checksums-*.txt`, `dist/SHA256SUMS.txt`).
+
+6. **Release Publishing Invariant**:
+   - Releases are published exclusively via Git tags (`v*`) through `.github/workflows/release.yml`.
+   - Never execute `git push` or create releases autonomously; git push and tag creation are maintainer-driven steps.
