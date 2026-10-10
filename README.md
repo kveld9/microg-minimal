@@ -16,39 +16,18 @@ On affected devices (typical Android Go), the stock Play Services and Play Store
 
 ## Install
 
-### Requirements
+### 1. Download the module zip
 
-On the computer used to build the module zip:
+Get the latest `microg-minimal-*.zip` from the GitHub Releases page of this repository.
 
-- Bash 4+
-- `curl` or `wget`
-- `sha256sum`
-- `zip` and `unzip`
+### 2. Flash it on the device
 
-### 1. Download the microG files
-
-```bash
-./scripts/fetch-apks.sh
-```
-
-Downloads are verified automatically before use.
-
-### 2. Build the module zip
-
-```bash
-./scripts/build-module.sh
-```
-
-The flashable zip is created in `dist/`.
-
-### 3. Flash it on the device
-
-1. Copy the zip from `dist/` to the device.
+1. Copy the zip to the device.
 2. Open the manager app (Magisk, KernelSU, SukiSU, or APatch).
 3. Go to Modules -> Install from storage and select the zip.
 4. Reboot when the install finishes.
 
-### 4. Uninstall
+### 3. Uninstall
 
 1. In the manager app, remove `microG Minimal` from Modules.
 2. Reboot. The stock system apps come back automatically.
