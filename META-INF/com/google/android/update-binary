@@ -1,0 +1,18 @@
+#!/sbin/sh
+# Magisk Module Package Installer Entry Point
+# Modern Magisk app intercepts this file when updater-script contains #MAGISK.
+# In custom recovery environments, this script delegates to Magisk's installer.
+
+UMASK=022
+ZIPFILE="$3"
+
+if [ -f /data/adb/magisk/magisk ]; then
+  exec /data/adb/magisk/magisk --install-module "$ZIPFILE"
+fi
+
+if [ -f /sbin/magisk ]; then
+  exec /sbin/magisk --install-module "$ZIPFILE"
+fi
+
+echo "! Magisk environment not detected" >&2
+exit 1

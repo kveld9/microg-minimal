@@ -1,0 +1,7 @@
+# vendor/ placeholder
+#
+# This directory stores microG APK binaries downloaded via scripts/fetch-apks.sh:
+# - GmsCoreGo.apk (com.google.android.gms)
+# - Phonesky.apk (com.android.vending)
+#
+# All .apk binaries are excluded from Git tracking.

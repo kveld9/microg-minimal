@@ -1,0 +1,15 @@
+# Build outputs and distribution packages
+dist/
+*.zip
+
+# Vendored binaries and local cache
+vendor/*
+!vendor/.gitkeep
+*.apk
+.cache/
+*.tmp
+*.part
+
+# OS / Editor artifacts
+.DS_Store
+Thumbs.db

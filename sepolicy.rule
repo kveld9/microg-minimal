@@ -1,0 +1,12 @@
+# sepolicy.rule
+#
+# Custom SELinux policy rules for microG Minimal.
+#
+# Android 9 Go (API 28) executes priv-app system applications under standard
+# SELinux domains (system_file / privapp_data_file). Because microG GmsCoreGo
+# and Phonesky are mounted directly into system/priv-app with standard 0644
+# permissions and inherit standard priv-app SELinux contexts, no custom
+# type transitions, capability grants, or permissive rules are required.
+#
+# This file is intentionally left without active rules to avoid broadening
+# SELinux permissions unnecessarily.
