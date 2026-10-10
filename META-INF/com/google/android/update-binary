@@ -1,9 +1,20 @@
 #!/sbin/sh
-# Magisk Module Package Installer Entry Point
-# Modern Magisk app intercepts this file when updater-script contains #MAGISK.
-# In custom recovery environments, this script delegates to Magisk's installer.
+# Universal installer entry point: Magisk, KernelSU family, and APatch.
+# Manager apps execute this file as: update-binary <version> <outfd> <zipfile>.
+#
+# Install strategy:
+# 1. When a Magisk binary is present, delegate to it (native magic mount,
+#    .replace markers shipped in the module handle directory suppression).
+# 2. Otherwise run a minimal built-in installer implementing the same
+#    Magisk-style contract (MODPATH, API, ARCH, ui_print, abort, set_perm,
+#    set_perm_recursive, then source customize.sh). This covers managers
+#    that simply execute update-binary without providing the installer
+#    environment themselves.
+# KernelSU/APatch managers that drive the install with their own installer
+# ignore this fallback and process customize.sh (including REPLACE) directly.
 
 UMASK=022
+OUTFD="$2"
 ZIPFILE="$3"
 
 if [ -f /data/adb/magisk/magisk ]; then
@@ -14,5 +25,129 @@ if [ -f /sbin/magisk ]; then
   exec /sbin/magisk --install-module "$ZIPFILE"
 fi
 
-echo "! Magisk environment not detected" >&2
-exit 1
+ui_print() {
+  echo "- $1"
+  if [ -n "${OUTFD:-}" ] && [ -e "/proc/self/fd/${OUTFD}" ]; then
+    echo "ui_print $1" >> "/proc/self/fd/${OUTFD}" 2>/dev/null || true
+  fi
+}
+
+abort() {
+  ui_print "$1"
+  exit 1
+}
+
+set_perm() {
+  chown "$2:$3" "$1" 2>/dev/null || true
+  chmod "$4" "$1" 2>/dev/null || true
+  if [ -n "${5:-}" ]; then
+    chcon "$5" "$1" 2>/dev/null || true
+  fi
+}
+
+set_perm_recursive() {
+  target_dir="$1"
+  target_owner="$2"
+  target_group="$3"
+  dir_perm="$4"
+  file_perm="$5"
+  target_context="${6:-u:object_r:system_file:s0}"
+
+  find "$target_dir" -type d -exec chmod "$dir_perm" {} + 2>/dev/null || true
+  find "$target_dir" -type f -exec chmod "$file_perm" {} + 2>/dev/null || true
+  chown -R "${target_owner}:${target_group}" "$target_dir" 2>/dev/null || true
+  chcon -R "$target_context" "$target_dir" 2>/dev/null || true
+}
+
+resolve_arch() {
+  case "$(uname -m 2>/dev/null)" in
+    aarch64 | armv8*) echo "arm64" ;;
+    armv7* | armv6* | arm*) echo "arm" ;;
+    x86_64 | amd64) echo "x64" ;;
+    x86 | i?86) echo "x86" ;;
+    *) echo "arm" ;;
+  esac
+}
+
+apply_replace_flags() {
+  # Best-effort OverlayFS opaque flags for REPLACE dirs declared in
+  # customize.sh (KernelSU family / APatch directory replacement).
+  # No-op on Magisk (this fallback never runs there) and when setfattr
+  # is unavailable.
+  if [ -z "${REPLACE:-}" ]; then
+    return 0
+  fi
+  if ! command -v setfattr >/dev/null 2>&1; then
+    return 0
+  fi
+  for replace_target in $REPLACE; do
+    replace_rel="${replace_target#/system/}"
+    replace_rel="${replace_rel#/}"
+    if [ -z "$replace_rel" ]; then
+      continue
+    fi
+    if [ -d "$MODPATH/system/$replace_rel" ]; then
+      setfattr -n trusted.overlay.opaque -v y "$MODPATH/system/$replace_rel" 2>/dev/null || true
+    fi
+  done
+}
+
+if [ -z "${ZIPFILE:-}" ]; then
+  echo "! No module zip provided to installer." >&2
+  exit 1
+fi
+
+if [ ! -f "$ZIPFILE" ]; then
+  echo "! Module zip not found: $ZIPFILE" >&2
+  exit 1
+fi
+
+if ! command -v unzip >/dev/null 2>&1; then
+  echo "! 'unzip' is required to install this module." >&2
+  exit 1
+fi
+
+MODID="$(unzip -p "$ZIPFILE" module.prop 2>/dev/null | grep '^id=' | cut -d= -f2- | tr -d '\r' | head -n 1)"
+if [ -z "${MODID:-}" ]; then
+  echo "! Cannot read module id from module.prop." >&2
+  exit 1
+fi
+
+if [ -z "${MODPATH:-}" ]; then
+  if [ -d /data/adb/modules_update ]; then
+    MODPATH="/data/adb/modules_update/${MODID}"
+  else
+    MODPATH="/data/adb/modules/${MODID}"
+  fi
+fi
+
+if [ -z "${API:-}" ]; then
+  API="$(getprop ro.build.version.sdk 2>/dev/null)"
+fi
+
+if [ -z "${ARCH:-}" ]; then
+  ARCH="$(resolve_arch)"
+fi
+
+BOOTMODE=true
+TMPDIR="${TMPDIR:-/dev/tmp}"
+mkdir -p "$TMPDIR" "$MODPATH" || {
+  echo "! Cannot create install directories." >&2
+  exit 1
+}
+
+ui_print "Installing ${MODID} (built-in installer)..."
+unzip -o "$ZIPFILE" -x 'META-INF/*' -d "$MODPATH" >/dev/null 2>&1 || abort "Failed to extract module files."
+
+if unzip -l "$ZIPFILE" 2>/dev/null | grep -q 'customize.sh'; then
+  TMP_CUST="${TMPDIR}/microg-customize.sh"
+  unzip -p "$ZIPFILE" customize.sh >"$TMP_CUST" 2>/dev/null || abort "Failed to read customize.sh."
+  # shellcheck source=/dev/null
+  . "$TMP_CUST"
+  rm -f "$TMP_CUST"
+fi
+
+apply_replace_flags
+
+ui_print "Done. Reboot to activate."
+exit 0

@@ -1,6 +1,17 @@
 #!/system/bin/sh
-# customize.sh - Magisk module installation customization script
-# Executed during module flash in Magisk app or recovery environment.
+# customize.sh - Module installation customization script
+# Sourced by the module installer (Magisk, KernelSU family, APatch) after
+# files are extracted. Uses only the portable installer contract
+# (MODPATH, API, ARCH, ui_print, abort, set_perm_recursive).
+
+# Directory replacement list for OverlayFS-based managers
+# (KernelSU family, APatch). Their installers replace these stock
+# directories with the module copies. Magisk ignores this variable and
+# uses the .replace marker files shipped in the module instead.
+REPLACE="
+/system/priv-app/GmsCoreGo
+/system/priv-app/Phonesky
+"
 
 print_banner() {
   ui_print "****************************************"
