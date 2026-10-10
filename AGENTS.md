@@ -24,8 +24,10 @@ This repository maintains the minimal systemless Magisk module skeleton, downloa
    - Always derive repository root dynamically (`REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"`).
    - All shell scripts must maintain `bash -n` validation, pass `set -euo pipefail`, and keep cyclomatic complexity low (CC <= 5) with early guard returns.
 
-5. **Upstream Update Automation**:
-   - `scripts/bump-microg.sh` is the sole programmatic owner of `versions.env` rewrites besides human maintainers.
+5. **Upstream Update Automation & Single Entry Point**:
+   - `scripts/update.sh` is the sole user-facing entrypoint for checking and bumping upstream microG releases.
+   - `scripts/lib-upstream.sh`, `scripts/fetch-apks.sh`, and `scripts/build-module.sh` are internal implementation components, not direct user commands.
+   - `scripts/update.sh` is the sole programmatic owner of `versions.env` rewrites besides human maintainers.
    - Never hand-edit generated checksum files (`dist/checksums-*.txt`, `dist/SHA256SUMS.txt`).
 
 6. **Release Publishing Invariant**:

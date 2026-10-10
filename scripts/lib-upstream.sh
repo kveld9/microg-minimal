@@ -187,6 +187,90 @@ get_file_size() {
   wc -c < "${target_file}" | tr -d ' '
 }
 
+download_asset() {
+  local url="$1"
+  local dest_path="$2"
+  local part_path="${dest_path}.part"
+
+  echo "Downloading: ${url}"
+  if command -v curl >/dev/null 2>&1; then
+    curl -fL --progress-bar --output "${part_path}" "${url}"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -q --show-progress -O "${part_path}" "${url}"
+  else
+    echo "Error: Neither curl nor wget is available." >&2
+    return 1
+  fi
+  mv "${part_path}" "${dest_path}"
+}
+
+ensure_cached_asset() {
+  local cache_dir="$1"
+  local url="$2"
+  local asset_name="$3"
+  local expected_size="$4"
+  local cache_path="${cache_dir}/${asset_name}"
+
+  mkdir -p "${cache_dir}"
+
+  if [[ -f "${cache_path}" ]]; then
+    local current_size
+    current_size="$(get_file_size "${cache_path}")"
+    if [[ -n "${expected_size}" && "${current_size}" == "${expected_size}" ]]; then
+      echo "Cache hit for ${asset_name} (${current_size} bytes)"
+      echo "${cache_path}"
+      return 0
+    fi
+  fi
+
+  download_asset "${url}" "${cache_path}"
+  local downloaded_size
+  downloaded_size="$(get_file_size "${cache_path}")"
+
+  if [[ -n "${expected_size}" && "${downloaded_size}" != "${expected_size}" ]]; then
+    rm -f "${cache_path}"
+    echo "Error: Downloaded size (${downloaded_size}) does not match expected (${expected_size}) for ${asset_name}" >&2
+    return 1
+  fi
+
+  echo "${cache_path}"
+}
+
+generate_checksum_files() {
+  local dist_dir="$1"
+  local module_version="$2"
+
+  local checksum_file="${dist_dir}/checksums-${module_version}.txt"
+  local sha256_sums="${dist_dir}/SHA256SUMS.txt"
+
+  (
+    cd "${dist_dir}"
+    local zip_pattern="microg-minimal-${module_version}.zip"
+    if [[ ! -f "${zip_pattern}" ]]; then
+      zip_pattern="microg-minimal-*.zip"
+    fi
+
+    echo "==================================================" > "${checksum_file}"
+    echo " microG Minimal ${module_version} — Integrity Hashes" >> "${checksum_file}"
+    echo "==================================================" >> "${checksum_file}"
+    echo "" >> "${checksum_file}"
+
+    echo "## SHA-256" >> "${checksum_file}"
+    sha256sum ${zip_pattern} >> "${checksum_file}"
+    echo "" >> "${checksum_file}"
+
+    echo "## SHA-512" >> "${checksum_file}"
+    sha512sum ${zip_pattern} >> "${checksum_file}"
+    echo "" >> "${checksum_file}"
+
+    echo "## MD5" >> "${checksum_file}"
+    md5sum ${zip_pattern} >> "${checksum_file}"
+
+    sha256sum ${zip_pattern} > "${sha256_sums}"
+  )
+  echo "Integrity hashes written to ${checksum_file} and ${sha256_sums}"
+}
+
 apply_project_metadata_updates() {
   local repo_root="$1"
   local module_version="$2"

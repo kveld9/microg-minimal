@@ -119,34 +119,38 @@ Monitor upstream releases on GitHub:
 - [microG GmsCore Releases](https://github.com/microg/GmsCore/releases)
 
 ### Single-Command Update
-When a new upstream release drops, execute the single bump command from the repository root:
+When a new upstream release drops, execute the single update command from the repository root:
 
 ```bash
-# Check status without writing any files
-./scripts/check-upstream.sh
-# or
-./scripts/bump-microg.sh --check
+# Standard interactive update: checks upstream, displays summary, and prompts before updating
+./scripts/update.sh
 
-# Execute the full automated bump for the latest release
-./scripts/bump-microg.sh --latest
+# Read-only status check (never writes files, exits 0 if up-to-date, 2 if update available)
+./scripts/update.sh --check
 
-# Or target a specific upstream release tag explicitly
-./scripts/bump-microg.sh v0.3.18.252432
+# Target an explicit upstream release tag
+./scripts/update.sh v0.3.18.252432
+
+# Non-interactive mode (skips confirmation prompt)
+./scripts/update.sh --yes
 ```
 
 ### Complete Maintenance Workflow
-1. **Detect Upstream Release**:
-   Run `./scripts/check-upstream.sh` (or inspect the microG releases page). The script exits `0` when up-to-date, `2` when an update is available, or `1` on error.
-2. **Execute Bump Script**:
-   Run `./scripts/bump-microg.sh --latest`.
-   The script autonomously:
+1. **Run Update Command**:
+   Execute `./scripts/update.sh`.
+   The script queries the latest upstream microG release and compares it with `versions.env`.
+   - If up-to-date: displays current status and exits `0` with zero file modifications.
+   - If an update is available: displays the resolved asset summary and asks for confirmation:
+     `Proceed with update to <tag>? [y/N]`
+2. **Automated Package Assembly (on confirmation)**:
+   Upon confirmation, `./scripts/update.sh` autonomously:
    - Resolves upstream assets dynamically by prefix (`com.google.android.gms-*.apk` and `com.android.vending-*.apk`).
    - Downloads payloads into `${XDG_CACHE_HOME:-~/.cache}/microg-minimal`.
    - Computes SHA-256 checksums and exact byte sizes.
    - Rewrites owned fields in `versions.env`.
    - Synchronizes `module.prop` and `update.json`.
    - Updates the Last-Known-Good table in `README.md` and appends a release entry to `CHANGELOG.md`.
-   - Invokes `./scripts/fetch-apks.sh` and `./scripts/build-module.sh` to package `dist/microg-minimal-<version>.zip`.
+   - Stages payloads via `./scripts/fetch-apks.sh` and builds `dist/microg-minimal-<version>.zip` via `./scripts/build-module.sh`.
    - Generates multi-hash integrity records (`dist/checksums-<version>.txt`) and standard checksums (`dist/SHA256SUMS.txt`).
 3. **Review Changes**:
    Verify the local diff before committing:
@@ -188,7 +192,7 @@ Upstream microG GmsCore releases publish standard APKs matching:
 - GmsCore: `com.google.android.gms-*.apk` (excluding `-hw.apk` Huawei variants and `.asc` signatures).
 - Phonesky: `com.android.vending-*.apk` (excluding `-hw.apk` Huawei variants and `.asc` signatures).
 
-If microG upstream alters asset naming patterns, `scripts/check-upstream.sh` and `scripts/bump-microg.sh` fail loudly with an explicit error message instead of guessing URLs. To adapt, update the asset matching rules in `scripts/lib-upstream.sh` (`parse_release_assets` function).
+If microG upstream alters asset naming patterns, `scripts/update.sh` fails loudly with an explicit error message instead of guessing URLs. To adapt, update the asset matching rules in `scripts/lib-upstream.sh` (`parse_release_assets` function).
 
 ---
 
