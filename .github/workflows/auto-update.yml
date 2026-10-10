@@ -1,0 +1,178 @@
+name: Auto Update
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Explicit upstream release tag (e.g. v0.3.18.252432; empty means latest)"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: auto-update
+  cancel-in-progress: false
+
+jobs:
+  auto-update:
+    name: Auto Update microG & Publish Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Validate Shell Script Syntax
+        run: |
+          set -euo pipefail
+          bash -n scripts/*.sh customize.sh uninstall.sh META-INF/com/google/android/update-binary
+
+      - name: Configure Git Identity
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "actions@github.com"
+
+      - name: Run Upstream Update Pipeline
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_INPUT: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          if [[ -n "${TAG_INPUT}" ]]; then
+            ./scripts/update.sh --yes --no-commit --no-push "${TAG_INPUT}"
+          else
+            ./scripts/update.sh --yes --no-commit --no-push
+          fi
+
+      - name: Detect Metadata Changes
+        id: detect
+        run: |
+          set -euo pipefail
+          CHANGES="$(git status --porcelain versions.env module.prop update.json CHANGELOG.md)"
+          if [[ -z "${CHANGES}" ]]; then
+            echo "Module metadata is already up-to-date. No changes detected."
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Upstream changes detected in metadata files:"
+            echo "${CHANGES}"
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit Metadata & Push Tag
+        if: steps.detect.outputs.has_changes == 'true'
+        run: |
+          set -euo pipefail
+          . ./versions.env
+
+          if git rev-parse -q --verify "refs/tags/${MODULE_VERSION}" >/dev/null 2>&1; then
+            echo "Error: Tag '${MODULE_VERSION}' already exists locally." >&2
+            exit 1
+          fi
+
+          if [[ -n "$(git ls-remote --tags origin "refs/tags/${MODULE_VERSION}")" ]]; then
+            echo "Error: Tag '${MODULE_VERSION}' already exists on remote origin." >&2
+            exit 1
+          fi
+
+          BRANCH="${GITHUB_REF_NAME:-main}"
+          git checkout "${BRANCH}"
+
+          git add versions.env module.prop update.json CHANGELOG.md
+          git commit -m "chore(microg): bump upstream microG to ${GMS_RELEASE_TAG}"
+          git tag -a "${MODULE_VERSION}" -m "Release ${MODULE_VERSION}"
+
+          git push origin "${BRANCH}"
+          git push origin "${MODULE_VERSION}"
+
+      - name: Check Existing Release Guard
+        id: guard
+        if: steps.detect.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          . ./versions.env
+          if gh release view "${MODULE_VERSION}" >/dev/null 2>&1; then
+            echo "Release for tag ${MODULE_VERSION} already exists. Skipping release creation."
+            echo "skip_release=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip_release=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Extract Release Metadata & Changelog
+        id: meta
+        if: steps.detect.outputs.has_changes == 'true' && steps.guard.outputs.skip_release != 'true'
+        run: |
+          set -euo pipefail
+          . ./versions.env
+          TAG="${MODULE_VERSION}"
+
+          CHANGELOG_EXCERPT="$(python3 -c "
+          import sys
+          tag = '${TAG}'
+          try:
+              with open('CHANGELOG.md', 'r', encoding='utf-8') as f:
+                  content = f.read()
+              header = f'## [{tag}]'
+              if header in content:
+                  part = content.split(header, 1)[1]
+                  if '\n## [' in part:
+                      body = part.split('\n## [', 1)[0].strip()
+                  else:
+                      body = part.strip()
+                  print(body)
+              else:
+                  print(f'- Automated release for microG Minimal {tag}')
+          except Exception as e:
+              print(f'- Automated release for microG Minimal {tag}')
+          ")"
+
+          {
+            echo "changelog<<CHANGELOG_EOF"
+            echo "${CHANGELOG_EXCERPT}"
+            echo "CHANGELOG_EOF"
+            echo "upstream_tag=${GMS_RELEASE_TAG}"
+            echo "module_version=${MODULE_VERSION}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        if: steps.detect.outputs.has_changes == 'true' && steps.guard.outputs.skip_release != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CHANGELOG_BODY: ${{ steps.meta.outputs.changelog }}
+          MODULE_VERSION: ${{ steps.meta.outputs.module_version }}
+          UPSTREAM_TAG: ${{ steps.meta.outputs.upstream_tag }}
+        run: |
+          set -euo pipefail
+
+          echo "## Changes" > /tmp/release-notes.md
+          echo "" >> /tmp/release-notes.md
+          echo "${CHANGELOG_BODY}" >> /tmp/release-notes.md
+          echo "" >> /tmp/release-notes.md
+          echo "## Release Details" >> /tmp/release-notes.md
+          echo "" >> /tmp/release-notes.md
+          echo "- **Module Version:** \`${MODULE_VERSION}\`" >> /tmp/release-notes.md
+          echo "- **Upstream microG Tag:** [${UPSTREAM_TAG}](https://github.com/microg/GmsCore/releases/tag/${UPSTREAM_TAG})" >> /tmp/release-notes.md
+          echo "" >> /tmp/release-notes.md
+          echo "## Downloads" >> /tmp/release-notes.md
+          echo "" >> /tmp/release-notes.md
+          echo "| File | Description |" >> /tmp/release-notes.md
+          echo "|------|-------------|" >> /tmp/release-notes.md
+          echo "| \`microg-minimal-${MODULE_VERSION}.zip\` | Flashable Magisk Module |" >> /tmp/release-notes.md
+          echo "| \`checksums-${MODULE_VERSION}.txt\` | Multi-hash Integrity Verification (SHA-256, SHA-512, MD5) |" >> /tmp/release-notes.md
+          echo "| \`SHA256SUMS.txt\` | Standard SHA-256 Checksums (\`sha256sum -c\`) |" >> /tmp/release-notes.md
+
+          gh release create "${MODULE_VERSION}" \
+            dist/microg-minimal-*.zip \
+            dist/checksums-*.txt \
+            dist/SHA256SUMS.txt \
+            --title "${MODULE_VERSION}" \
+            --notes-file /tmp/release-notes.md
