@@ -43,6 +43,7 @@ This repository maintains the minimal systemless Magisk module skeleton, downloa
 
 ## Maintainer Workflow (internal, never for README.md)
 
+- Building from source (maintainers/contributors only). Requirements: Bash 4+, `curl` or `wget`, `sha256sum`, `zip`/`unzip` (`python3` and `git` for the update flow). Then `./scripts/fetch-apks.sh` (downloads verify automatically) and `./scripts/build-module.sh` (flashable zip goes to `dist/`; `--skeleton` builds offline without APKs).
 - Upstream source: `https://github.com/microg/GmsCore/releases`. `scripts/update.sh` is the sole entrypoint (`--check`, `--dry-run`, `--yes`, `--no-commit`, `--no-push`, explicit `TAG`); `lib-upstream.sh` holds the shared logic, including `parse_release_assets`.
 - Upstream asset selection: `com.google.android.gms-*.apk` and `com.android.vending-*.apk`, excluding `-hw.apk` Huawei variants and `.asc` signatures. On naming changes the updater fails loudly; adapt the match rules, never guess URLs.
 - `versionCode` formula: `(MAJOR * 100000) + (MINOR * 10000) + (PATCH * 10) + SUBPATCH` (e.g. `v0.3.17` -> `30170`).
