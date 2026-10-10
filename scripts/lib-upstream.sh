@@ -361,23 +361,7 @@ with open(json_path, "w", encoding="utf-8") as f:
     json.dump(json_data, f, indent=2)
     f.write("\n")
 
-# 4. Update README.md
-readme_path = os.path.join(repo_root, "README.md")
-with open(readme_path, "r", encoding="utf-8") as f:
-    readme_content = f.read()
-
-gms_pattern = r"(\|\s*\*\*GmsCore\*\*\s*\|\s*`system/priv-app/GmsCoreGo/GmsCoreGo\.apk`\s*\|\s*`com\.google\.android\.gms`\s*)\([^)]*\)(\s*\|\s*)[0-9,]+(\s*\|\s*`)[a-f0-9]+(`\s*\|)"
-vending_pattern = r"(\|\s*\*\*Phonesky\*\*\s*\|\s*`system/priv-app/Phonesky/Phonesky\.apk`\s*\|\s*`com\.android\.vending`\s*)\([^)]*\)(\s*\|\s*)[0-9,]+(\s*\|\s*`)[a-f0-9]+(`\s*\|)"
-
-gms_formatted = f"{int(gms_size):,}"
-vending_formatted = f"{int(vending_size):,}"
-
-readme_content = re.sub(gms_pattern, rf"\g<1>({module_version})\g<2>{gms_formatted}\g<3>{gms_sha}\g<4>", readme_content)
-readme_content = re.sub(vending_pattern, rf"\g<1>({module_version})\g<2>{vending_formatted}\g<3>{vending_sha}\g<4>", readme_content)
-with open(readme_path, "w", encoding="utf-8") as f:
-    f.write(readme_content)
-
-# 5. Update CHANGELOG.md
+# 4. Update CHANGELOG.md
 changelog_path = os.path.join(repo_root, "CHANGELOG.md")
 with open(changelog_path, "r", encoding="utf-8") as f:
     cl_content = f.read()
@@ -400,7 +384,7 @@ print_manual_git_steps() {
 
   echo ""
   echo "Manual Git commands to complete release:"
-  echo "  git add versions.env module.prop update.json README.md CHANGELOG.md"
+  echo "  git add versions.env module.prop update.json CHANGELOG.md"
   echo "  git commit -m \"chore(microg): bump upstream microG to ${target_tag}\""
   echo "  git tag ${module_version}"
   echo "  git push origin ${branch}"
@@ -480,7 +464,6 @@ stage_and_commit_publish() {
     "${repo_root}/versions.env" \
     "${repo_root}/module.prop" \
     "${repo_root}/update.json" \
-    "${repo_root}/README.md" \
     "${repo_root}/CHANGELOG.md"
 
   if git -C "${repo_root}" diff --cached --quiet; then

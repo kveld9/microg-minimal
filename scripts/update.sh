@@ -198,7 +198,6 @@ execute_dry_run() {
   echo "  - versions.env (MODULE_VERSION, MODULE_VERSION_CODE, GMS_*, VENDING_*)"
   echo "  - module.prop (version, versionCode)"
   echo "  - update.json (version, versionCode, zipUrl)"
-  echo "  - README.md (Last-Known-Good Reference Binaries table row)"
   echo "  - CHANGELOG.md (entry for [${module_version}])"
   echo "=================================================="
 }
