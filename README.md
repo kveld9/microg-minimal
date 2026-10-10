@@ -191,7 +191,7 @@ versionCode = (MAJOR * 100000) + (MINOR * 10000) + (PATCH * 10) + SUBPATCH
 
 ### update.json Synchronization
 The `zipUrl` in `update.json` points to:
-`https://github.com/kveld/microg-minimal/releases/download/<version>/microg-minimal-<version>.zip`
+`https://github.com/kveld9/microg-minimal/releases/download/<version>/microg-minimal-<version>.zip`
 This URL matches the GitHub Release tag created in step 5, ensuring Magisk update checks locate the published archive.
 
 ### Handling Upstream Asset Naming Changes

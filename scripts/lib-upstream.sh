@@ -356,7 +356,7 @@ with open(json_path, "r", encoding="utf-8") as f:
     json_data = json.load(f)
 json_data["version"] = module_version
 json_data["versionCode"] = int(version_code)
-json_data["zipUrl"] = f"https://github.com/kveld/microg-minimal/releases/download/{module_version}/microg-minimal-{module_version}.zip"
+json_data["zipUrl"] = f"https://github.com/kveld9/microg-minimal/releases/download/{module_version}/microg-minimal-{module_version}.zip"
 with open(json_path, "w", encoding="utf-8") as f:
     json.dump(json_data, f, indent=2)
     f.write("\n")
