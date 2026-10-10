@@ -17,6 +17,8 @@ CHECK_ONLY=0
 DRY_RUN=0
 ASSUME_YES=0
 OUTPUT_JSON=0
+NO_COMMIT=0
+NO_PUSH=0
 
 print_usage() {
   cat <<'EOF'
@@ -27,7 +29,7 @@ Single entry-point command for microG Minimal upstream release updates.
 By default (no flags), checks for the latest upstream release. If up-to-date,
 it reports status and exits 0. If an update is available, it displays the release
 summary and asks for confirmation before downloading assets, rewriting metadata,
-and building the flashable module package.
+building the flashable module package, committing metadata, and pushing release artifacts.
 
 Arguments:
   TAG             Target an explicit upstream release tag (e.g., v0.3.18.252432).
@@ -38,6 +40,8 @@ Options:
                   2 if an update is available.
   --yes, -y       Skip interactive confirmation prompt (non-interactive mode).
   --dry-run       Preview planned metadata changes without writing files.
+  --no-commit     Perform update and build, but skip git commit, tag, and push.
+  --no-push       Perform update, build, commit, and tag locally, but skip git push.
   --json          Output check status in machine-readable JSON format.
   --help, -h      Display this help message and exit.
 EOF
@@ -54,6 +58,12 @@ parse_arguments() {
         ;;
       --dry-run)
         DRY_RUN=1
+        ;;
+      --no-commit)
+        NO_COMMIT=1
+        ;;
+      --no-push)
+        NO_PUSH=1
         ;;
       --json)
         OUTPUT_JSON=1
@@ -193,30 +203,18 @@ execute_dry_run() {
   echo "=================================================="
 }
 
-print_next_steps() {
+print_artifacts_summary() {
   local module_version="$1"
   local target_tag="$2"
 
   echo ""
   echo "=================================================="
-  echo " Update Complete: microG Minimal ${module_version}"
+  echo " Artifacts Generated: microG Minimal ${module_version}"
   echo "=================================================="
   echo "Upstream Tag:   ${target_tag}"
   echo "Module Archive: ${DIST_DIR}/microg-minimal-${module_version}.zip"
   echo "Checksums:      ${DIST_DIR}/checksums-${module_version}.txt"
   echo "                ${DIST_DIR}/SHA256SUMS.txt"
-  echo ""
-  echo "Next maintainer steps:"
-  echo "  1. Review changes:"
-  echo "     git diff"
-  echo "  2. Commit update:"
-  echo "     git add versions.env module.prop update.json README.md CHANGELOG.md"
-  echo "     git commit -m \"chore(microg): bump upstream microG to ${module_version}\""
-  echo "  3. Create release tag:"
-  echo "     git tag ${module_version}"
-  echo "  4. Push commit and tag to publish GitHub Release:"
-  echo "     git push origin main"
-  echo "     git push origin ${module_version}"
   echo "=================================================="
 }
 
@@ -267,7 +265,11 @@ execute_update_pipeline() {
   "${REPO_ROOT}/scripts/build-module.sh"
 
   generate_checksum_files "${DIST_DIR}" "${module_version}"
-  print_next_steps "${module_version}" "${target_tag}"
+  print_artifacts_summary "${module_version}" "${target_tag}"
+
+  local branch
+  branch="$(git -C "${REPO_ROOT}" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")"
+  publish_release "${REPO_ROOT}" "${module_version}" "${target_tag}" "${branch}" "${NO_COMMIT}" "${NO_PUSH}"
 }
 
 main() {

@@ -122,7 +122,7 @@ Monitor upstream releases on GitHub:
 When a new upstream release drops, execute the single update command from the repository root:
 
 ```bash
-# Standard interactive update: checks upstream, displays summary, and prompts before updating
+# Standard interactive update: checks upstream, displays summary, prompts, updates, commits, tags, and pushes
 ./scripts/update.sh
 
 # Read-only status check (never writes files, exits 0 if up-to-date, 2 if update available)
@@ -133,16 +133,27 @@ When a new upstream release drops, execute the single update command from the re
 
 # Non-interactive mode (skips confirmation prompt)
 ./scripts/update.sh --yes
+
+# Update and build locally without git operations (prints manual commands)
+./scripts/update.sh --no-commit
+
+# Update, build, commit, and tag locally without pushing to remote
+./scripts/update.sh --no-push
 ```
 
 ### Complete Maintenance Workflow
-1. **Run Update Command**:
+1. **Prerequisites**:
+   Ensure a Git remote named `origin` is configured pointing to your repository:
+   ```bash
+   git remote add origin git@github.com:<owner>/microg-minimal.git
+   ```
+2. **Run Update Command**:
    Execute `./scripts/update.sh`.
    The script queries the latest upstream microG release and compares it with `versions.env`.
    - If up-to-date: displays current status and exits `0` with zero file modifications.
    - If an update is available: displays the resolved asset summary and asks for confirmation:
      `Proceed with update to <tag>? [y/N]`
-2. **Automated Package Assembly (on confirmation)**:
+3. **Automated Package Assembly (on confirmation)**:
    Upon confirmation, `./scripts/update.sh` autonomously:
    - Resolves upstream assets dynamically by prefix (`com.google.android.gms-*.apk` and `com.android.vending-*.apk`).
    - Downloads payloads into `${XDG_CACHE_HOME:-~/.cache}/microg-minimal`.
@@ -152,26 +163,22 @@ When a new upstream release drops, execute the single update command from the re
    - Updates the Last-Known-Good table in `README.md` and appends a release entry to `CHANGELOG.md`.
    - Stages payloads via `./scripts/fetch-apks.sh` and builds `dist/microg-minimal-<version>.zip` via `./scripts/build-module.sh`.
    - Generates multi-hash integrity records (`dist/checksums-<version>.txt`) and standard checksums (`dist/SHA256SUMS.txt`).
-3. **Review Changes**:
-   Verify the local diff before committing:
-   ```bash
-   git diff
-   ```
-4. **Commit the Changes**:
-   ```bash
-   git add versions.env module.prop update.json README.md CHANGELOG.md
-   git commit -m "chore(microg): bump upstream microG to <version>"
-   ```
-5. **Tag the Release**:
-   ```bash
-   git tag <version>
-   ```
-6. **Push to GitHub**:
-   ```bash
-   git push origin main
-   git push origin <version>
-   ```
-   Pushing the tag triggers the `.github/workflows/release.yml` GitHub Actions pipeline. CI verifies shell syntax, fetches binaries, packages the flashable module zip, computes multi-hash checksums, and publishes the GitHub Release with attached assets.
+4. **Automated Commit & Push (Default Flow)**:
+   Unless opted out via `--no-commit` or `--no-push`, the script automatically completes the release cycle:
+   - Checks Git preconditions (valid work tree, active branch, and `origin` remote configured).
+   - Stages exactly: `versions.env`, `module.prop`, `update.json`, `README.md`, `CHANGELOG.md`.
+   - Commits with message: `chore(microg): bump upstream microG to <target_tag>`.
+   - Creates local release tag: `<version>` (e.g., `v0.3.18`).
+   - Pushes branch (`git push origin <branch>`) followed by tag (`git push origin <version>`).
+   - Pushing the tag triggers `.github/workflows/release.yml` on GitHub Actions, which builds the module archive, computes multi-hash checksums, and attaches them to the new GitHub Release.
+5. **Manual & Recovery Modes**:
+   - If `--no-commit` is passed, metadata changes and build artifacts remain uncommitted, and manual Git commands are displayed.
+   - If `--no-push` is passed, commit and tag are created locally, but not pushed to `origin`.
+   - If remote push fails or `origin` is missing, local changes and tags are preserved with copy-pasteable manual commands to recover:
+     ```bash
+     git push origin <branch>
+     git push origin <version>
+     ```
 
 ### Numeric Version Code Scheme
 `versionCode` is computed using the deterministic formula:

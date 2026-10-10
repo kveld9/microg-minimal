@@ -392,3 +392,214 @@ with open(changelog_path, "w", encoding="utf-8") as f:
     f.write(cl_content)
 ' "${repo_root}" "${module_version}" "${version_code}" "${semver}" "${target_tag}" "${gms_asset}" "${gms_size}" "${gms_sha}" "${vending_asset}" "${vending_size}" "${vending_sha}" "${date_str}"
 }
+
+print_manual_git_steps() {
+  local module_version="$1"
+  local target_tag="$2"
+  local branch="${3:-main}"
+
+  echo ""
+  echo "Manual Git commands to complete release:"
+  echo "  git add versions.env module.prop update.json README.md CHANGELOG.md"
+  echo "  git commit -m \"chore(microg): bump upstream microG to ${target_tag}\""
+  echo "  git tag ${module_version}"
+  echo "  git push origin ${branch}"
+  echo "  git push origin ${module_version}"
+}
+
+print_publish_success() {
+  local module_version="$1"
+  local target_tag="$2"
+  local commit_hash="$3"
+  local branch="$4"
+  local origin_url="$5"
+
+  local release_url
+  release_url="$(python3 -c '
+import sys, re
+url = sys.argv[1].strip()
+tag = sys.argv[2].strip()
+m = re.search(r"github\.com[:/]([^/]+)/([^/.]+?)(?:\.git)?$", url)
+if m:
+    print(f"https://github.com/{m.group(1)}/{m.group(2)}/releases/tag/{tag}")
+else:
+    print(f"{url}/releases/tag/{tag}")
+' "${origin_url}" "${module_version}")"
+
+  echo ""
+  echo "=================================================="
+  echo " Release Published Successfully!"
+  echo "=================================================="
+  echo "Module Version:   ${module_version}"
+  echo "Upstream Target:  ${target_tag}"
+  echo "Commit Hash:      ${commit_hash}"
+  echo "Branch:           ${branch}"
+  echo "Tag:              ${module_version}"
+  echo "Remote:           origin (${origin_url})"
+  echo "GitHub Release:   ${release_url}"
+  echo ""
+  echo "GitHub Actions (.github/workflows/release.yml) will package"
+  echo "and publish the release archive with multi-hash checksums."
+  echo "=================================================="
+}
+
+verify_git_preconditions() {
+  local repo_root="$1"
+  local branch="$2"
+  local no_push="$3"
+  local module_version="$4"
+  local target_tag="$5"
+
+  if ! git -C "${repo_root}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    echo "Error: Directory ${repo_root} is not inside a git work tree." >&2
+    print_manual_git_steps "${module_version}" "${target_tag}" "${branch}"
+    return 1
+  fi
+
+  if [[ -z "${branch}" || "${branch}" == "HEAD" ]]; then
+    echo "Error: Unable to resolve a valid current git branch." >&2
+    print_manual_git_steps "${module_version}" "${target_tag}" "main"
+    return 1
+  fi
+
+  if [[ "${no_push}" -eq 0 ]] && ! git -C "${repo_root}" remote get-url origin >/dev/null 2>&1; then
+    echo "Error: Git remote 'origin' is not configured." >&2
+    echo "Configure remote with: git remote add origin <url>" >&2
+    print_manual_git_steps "${module_version}" "${target_tag}" "${branch}"
+    return 1
+  fi
+
+  return 0
+}
+
+stage_and_commit_publish() {
+  local repo_root="$1"
+  local target_tag="$2"
+
+  git -C "${repo_root}" add \
+    "${repo_root}/versions.env" \
+    "${repo_root}/module.prop" \
+    "${repo_root}/update.json" \
+    "${repo_root}/README.md" \
+    "${repo_root}/CHANGELOG.md"
+
+  if git -C "${repo_root}" diff --cached --quiet; then
+    echo "clean"
+    return 0
+  fi
+
+  local commit_msg="chore(microg): bump upstream microG to ${target_tag}"
+  if ! git -C "${repo_root}" commit -m "${commit_msg}" >/dev/null; then
+    echo "Error: Failed to create git commit." >&2
+    return 1
+  fi
+
+  git -C "${repo_root}" rev-parse HEAD
+}
+
+create_publish_tag() {
+  local repo_root="$1"
+  local module_version="$2"
+  local branch="$3"
+  local commit_hash="$4"
+
+  if git -C "${repo_root}" rev-parse -q --verify "refs/tags/${module_version}" >/dev/null 2>&1; then
+    echo "Error: Tag '${module_version}' already exists locally." >&2
+    echo "Commit ${commit_hash} is preserved. Manual recovery required:" >&2
+    echo "  git push origin ${branch}" >&2
+    return 1
+  fi
+
+  if ! git -C "${repo_root}" tag "${module_version}"; then
+    echo "Error: Failed to create git tag '${module_version}'." >&2
+    return 1
+  fi
+  echo "Created release tag: ${module_version}"
+}
+
+push_publish_artifacts() {
+  local repo_root="$1"
+  local branch="$2"
+  local module_version="$3"
+  local commit_hash="$4"
+
+  echo "Pushing branch ${branch} to origin..."
+  if ! git -C "${repo_root}" push origin "${branch}"; then
+    echo "Error: Failed to push branch ${branch} to origin." >&2
+    echo "Local commit (${commit_hash}) and tag (${module_version}) are preserved." >&2
+    echo "Retry push manually with:" >&2
+    echo "  git push origin ${branch}" >&2
+    echo "  git push origin ${module_version}" >&2
+    return 1
+  fi
+
+  echo "Pushing tag ${module_version} to origin..."
+  if ! git -C "${repo_root}" push origin "${module_version}"; then
+    echo "Error: Failed to push tag ${module_version} to origin." >&2
+    echo "Local commit (${commit_hash}) and tag (${module_version}) are preserved." >&2
+    echo "Retry tag push manually with:" >&2
+    echo "  git push origin ${module_version}" >&2
+    return 1
+  fi
+
+  return 0
+}
+
+publish_release() {
+  local repo_root="$1"
+  local module_version="$2"
+  local target_tag="$3"
+  local branch="$4"
+  local no_commit="${5:-0}"
+  local no_push="${6:-0}"
+
+  if [[ -z "${branch}" || "${branch}" == "HEAD" ]]; then
+    branch="$(git -C "${repo_root}" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")"
+  fi
+
+  if [[ "${no_commit}" -eq 1 ]]; then
+    echo "Notice: --no-commit specified. Skipping commit and push."
+    print_manual_git_steps "${module_version}" "${target_tag}" "${branch}"
+    return 0
+  fi
+
+  if ! verify_git_preconditions "${repo_root}" "${branch}" "${no_push}" "${module_version}" "${target_tag}"; then
+    return 1
+  fi
+
+  local commit_hash
+  commit_hash="$(stage_and_commit_metadata_internal "${repo_root}" "${target_tag}")" || return 1
+
+  if [[ "${commit_hash}" == "clean" ]]; then
+    echo "Notice: No metadata changes to commit."
+    return 0
+  fi
+  echo "Committed: ${commit_hash} (chore(microg): bump upstream microG to ${target_tag})"
+
+  if ! create_publish_tag "${repo_root}" "${module_version}" "${branch}" "${commit_hash}"; then
+    return 1
+  fi
+
+  if [[ "${no_push}" -eq 1 ]]; then
+    echo "Notice: --no-push specified. Commit and tag created locally."
+    echo "Manual push commands:"
+    echo "  git push origin ${branch}"
+    echo "  git push origin ${module_version}"
+    return 0
+  fi
+
+  local origin_url
+  origin_url="$(git -C "${repo_root}" remote get-url origin)"
+
+  if ! push_publish_artifacts "${repo_root}" "${branch}" "${module_version}" "${commit_hash}"; then
+    return 1
+  fi
+
+  print_publish_success "${module_version}" "${target_tag}" "${commit_hash}" "${branch}" "${origin_url}"
+  return 0
+}
+
+stage_and_commit_metadata_internal() {
+  stage_and_commit_publish "$1" "$2"
+}
+

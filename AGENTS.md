@@ -28,8 +28,10 @@ This repository maintains the minimal systemless Magisk module skeleton, downloa
    - `scripts/update.sh` is the sole user-facing entrypoint for checking and bumping upstream microG releases.
    - `scripts/lib-upstream.sh`, `scripts/fetch-apks.sh`, and `scripts/build-module.sh` are internal implementation components, not direct user commands.
    - `scripts/update.sh` is the sole programmatic owner of `versions.env` rewrites besides human maintainers.
+   - On successful update, `scripts/update.sh` autonomously commits metadata changes and pushes `<branch>` and `<tag>` to `origin`, unless opted out via `--no-commit` or `--no-push`.
    - Never hand-edit generated checksum files (`dist/checksums-*.txt`, `dist/SHA256SUMS.txt`).
 
 6. **Release Publishing Invariant**:
    - Releases are published exclusively via Git tags (`v*`) through `.github/workflows/release.yml`.
-   - Never execute `git push` or create releases autonomously; git push and tag creation are maintainer-driven steps.
+   - When executed by maintainers, `scripts/update.sh` autonomously commits and pushes `<branch>` and `<tag>` to `origin`.
+   - AI assistants must never execute `git push` directly in autonomous turns; git push remains maintainer-driven (either manually or via maintainer-invoked `update.sh`).
