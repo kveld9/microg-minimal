@@ -1,16 +1,16 @@
 # microG Minimal
 
-A systemless root module that replaces the stock Google Play Services and Play Store with [microG](https://github.com/microg/GmsCore) on Android Go devices. The system partition is never modified: removing the module and rebooting restores the stock apps.
+A systemless root module that replaces the stock Google Play Services and Play Store with [microG](https://github.com/microg/GmsCore). It works with Magisk, the KernelSU family, and APatch. The system partition is never modified: removing the module and rebooting restores the stock apps.
 
 ## What It Does
 
-On Android Go, the stock Play Services and Play Store ship as split packages that cannot be swapped file by file. This module cleanly suppresses those stock packages and provides the microG equivalents as system apps instead.
+On affected devices (typical Android Go), the stock Play Services and Play Store ship as split packages that cannot be swapped file by file. This module cleanly suppresses those stock packages and provides the microG equivalents as system apps instead.
 
 ## Compatibility
 
-- Android 9 or newer (Go-edition app layout).
-- ARM devices, 32-bit and 64-bit.
 - Any of these root managers: Magisk, KernelSU family (KernelSU, KernelSU Next, SukiSU), APatch.
+- Android 9 or newer, on devices whose stock Play Services and Play Store use the Go-edition app layout.
+- ARM devices, 32-bit and 64-bit.
 - On the KernelSU family, a system-mount helper (a metamodule such as `meta-overlayfs`) is required for the module files to take effect.
 - No Zygisk required.
 
