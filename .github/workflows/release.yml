@@ -110,12 +110,26 @@ jobs:
               print(f'- Automated release for microG Minimal {tag}')
           ")"
 
+          PREV_TAG="$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || echo "")"
+          if [[ -n "${PREV_TAG}" ]]; then
+            COMMITS="$(git log --pretty=format:'- %h %s' "${PREV_TAG}..${TAG}")"
+            if [[ -z "${COMMITS}" ]]; then
+              COMMITS="- No new commits."
+            fi
+          else
+            COMMITS="Initial release."
+          fi
+
           {
             echo "changelog<<CHANGELOG_EOF"
             echo "${CHANGELOG_EXCERPT}"
             echo "CHANGELOG_EOF"
             echo "upstream_tag=${GMS_RELEASE_TAG}"
             echo "module_version=${MODULE_VERSION}"
+            echo "prev_tag=${PREV_TAG}"
+            echo "commits<<COMMITS_EOF"
+            echo "${COMMITS}"
+            echo "COMMITS_EOF"
           } >> "$GITHUB_OUTPUT"
 
       - name: Publish GitHub Release
@@ -133,6 +147,12 @@ jobs:
 
             - **Module Version:** `${{ steps.meta.outputs.module_version }}`
             - **Upstream microG Tag:** [${{ steps.meta.outputs.upstream_tag }}](https://github.com/microg/GmsCore/releases/tag/${{ steps.meta.outputs.upstream_tag }})
+
+            ## Commits
+
+            ${{ steps.meta.outputs.prev_tag != '' && format('**Full changelog**: [{0}...{1}](https://github.com/{2}/compare/{0}...{1})', steps.meta.outputs.prev_tag, github.ref_name, github.repository) || '' }}
+
+            ${{ steps.meta.outputs.commits }}
 
             ## Downloads
 

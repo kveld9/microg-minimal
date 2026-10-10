@@ -135,21 +135,38 @@ jobs:
               print(f'- Automated release for microG Minimal {tag}')
           ")"
 
+          PREV_TAG="$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || echo "")"
+          if [[ -n "${PREV_TAG}" ]]; then
+            COMMITS="$(git log --pretty=format:'- %h %s' "${PREV_TAG}..${TAG}")"
+            if [[ -z "${COMMITS}" ]]; then
+              COMMITS="- No new commits."
+            fi
+          else
+            COMMITS="Initial release."
+          fi
+
           {
             echo "changelog<<CHANGELOG_EOF"
             echo "${CHANGELOG_EXCERPT}"
             echo "CHANGELOG_EOF"
             echo "upstream_tag=${GMS_RELEASE_TAG}"
             echo "module_version=${MODULE_VERSION}"
+            echo "prev_tag=${PREV_TAG}"
+            echo "commits<<COMMITS_EOF"
+            echo "${COMMITS}"
+            echo "COMMITS_EOF"
           } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         if: steps.detect.outputs.has_changes == 'true' && steps.guard.outputs.skip_release != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
           CHANGELOG_BODY: ${{ steps.meta.outputs.changelog }}
           MODULE_VERSION: ${{ steps.meta.outputs.module_version }}
           UPSTREAM_TAG: ${{ steps.meta.outputs.upstream_tag }}
+          PREV_TAG: ${{ steps.meta.outputs.prev_tag }}
+          COMMITS: ${{ steps.meta.outputs.commits }}
         run: |
           set -euo pipefail
 
@@ -161,6 +178,14 @@ jobs:
           echo "" >> /tmp/release-notes.md
           echo "- **Module Version:** \`${MODULE_VERSION}\`" >> /tmp/release-notes.md
           echo "- **Upstream microG Tag:** [${UPSTREAM_TAG}](https://github.com/microg/GmsCore/releases/tag/${UPSTREAM_TAG})" >> /tmp/release-notes.md
+          echo "" >> /tmp/release-notes.md
+          echo "## Commits" >> /tmp/release-notes.md
+          echo "" >> /tmp/release-notes.md
+          if [[ -n "${PREV_TAG}" ]]; then
+            echo "**Full changelog**: [${PREV_TAG}...${MODULE_VERSION}](https://github.com/${GITHUB_REPOSITORY}/compare/${PREV_TAG}...${MODULE_VERSION})" >> /tmp/release-notes.md
+            echo "" >> /tmp/release-notes.md
+          fi
+          echo "${COMMITS}" >> /tmp/release-notes.md
           echo "" >> /tmp/release-notes.md
           echo "## Downloads" >> /tmp/release-notes.md
           echo "" >> /tmp/release-notes.md
