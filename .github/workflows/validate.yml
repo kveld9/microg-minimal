@@ -1,0 +1,75 @@
+name: Validate
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  validate:
+    name: Shell, Metadata & Skeleton Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+      - name: Validate Shell Script Syntax
+        run: |
+          set -euo pipefail
+          bash -n scripts/*.sh customize.sh uninstall.sh META-INF/com/google/android/update-binary
+      - name: Run ShellCheck
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq shellcheck
+          shellcheck --severity=warning scripts/*.sh customize.sh uninstall.sh META-INF/com/google/android/update-binary
+      - name: Check Metadata Consistency
+        run: |
+          set -euo pipefail
+          python3 - << 'EOF'
+          import json, re, sys
+          env = {}
+          with open('versions.env', encoding='utf-8') as f:
+              for line in f:
+                  line = line.strip()
+                  if not line or line.startswith('#'):
+                      continue
+                  m = re.match(r'^([A-Za-z_][A-Za-z0-9_]*)=(.*)$', line)
+                  if m:
+                      v = m.group(2).strip().strip('"').strip("'")
+                      env[m.group(1)] = v
+          props = {}
+          with open('module.prop', encoding='utf-8') as f:
+              for line in f:
+                  if '=' in line:
+                      k, v = line.strip().split('=', 1)
+                      props[k.strip()] = v.strip()
+          with open('update.json', encoding='utf-8') as f:
+              uj = json.load(f)
+          errors = []
+          if props.get('version') != env.get('MODULE_VERSION'):
+              errors.append(f"module.prop version {props.get('version')} != {env.get('MODULE_VERSION')}")
+          if props.get('versionCode') != env.get('MODULE_VERSION_CODE'):
+              errors.append(f"module.prop versionCode {props.get('versionCode')} != {env.get('MODULE_VERSION_CODE')}")
+          if uj.get('version') != env.get('MODULE_VERSION'):
+              errors.append(f"update.json version {uj.get('version')} != {env.get('MODULE_VERSION')}")
+          if uj.get('versionCode') != int(env.get('MODULE_VERSION_CODE', '0')):
+              errors.append("update.json versionCode mismatch")
+          mv = env.get('MODULE_VERSION', '')
+          expected_zip = f"https://github.com/kveld9/microg-minimal/releases/download/{mv}/microg-minimal-{mv}.zip"
+          if uj.get('zipUrl') != expected_zip:
+              errors.append(f"update.json zipUrl {uj.get('zipUrl')} != {expected_zip}")
+          if errors:
+              print('\n'.join(errors), file=sys.stderr)
+              sys.exit(1)
+          print('Metadata consistent.')
+          EOF
+      - name: Skeleton Build Smoke Test
+        run: |
+          set -euo pipefail
+          ./scripts/build-module.sh --skeleton
+          ls -la dist/*-skeleton.zip
+          zip -T dist/*-skeleton.zip
