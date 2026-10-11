@@ -12,7 +12,7 @@ On affected devices (Android Go, standard Android, and legacy layouts), the stoc
 - Android 8.1 or newer, supporting Android Go layouts (`system/priv-app/GmsCoreGo` and `Phonesky`), standard Android layouts (`product/priv-app/GmsCore` and `Phonesky`), and legacy layouts (`system/priv-app/PrebuiltGmsCore`).
 - Provides the required system permission grants for microG.
 - ARM devices, 32-bit and 64-bit.
-- On the KernelSU family, a system-mount helper (such as the `meta-overlayfs` metamodule) is required for files to mount into `/system`. Verify after reboot that microG exists under `/system/priv-app/`; if missing, install `meta-overlayfs`.
+- On the KernelSU family, `/system` mounting requires `meta-overlayfs` (the official reference metamodule by KernelSU Developers, available on [MMRL](https://mmrl.dev/repository/grdoglgmr/meta-overlayfs)). Flash it like a normal module, reboot, and verify microG exists under `/system/priv-app/`. Fork managers (e.g. ResuKisu/SukiSU-family) may handle metamodules differently; follow their documentation or support channels.
 - No Zygisk required.
 
 ## Before Installing
