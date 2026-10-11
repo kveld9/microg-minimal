@@ -28,6 +28,7 @@ IS_LOCAL_MODE=0
 MIN_SDK_LEVEL=""
 STOCK_DIRS_FOUND=0
 GSF_DIR_FOUND=0
+GOOGLE_PKGS_FOUND=0
 BLOCKING_VERDICT=0
 FAILING_CHECK=""
 
@@ -340,6 +341,7 @@ inspect_single_package() {
     return 0
   fi
 
+  GOOGLE_PKGS_FOUND=1
   local ver_out
   ver_out="$(adb_cmd shell dumpsys package "${pkg}" 2>/dev/null | grep -m 1 "versionName=" | sed 's/.*versionName=//' | tr -d '\r' || true)"
   local ver_desc="${ver_out:-unknown}"
@@ -458,12 +460,17 @@ check_stock_directories() {
     check_single_stock_dir "${d}"
   done
 
-  if [[ "${STOCK_DIRS_FOUND}" -eq 0 ]]; then
-    echo "[FAIL] Stock overlay directories: None detected (unsupported or unrecognized partition layout)"
-    return 1
+  if [[ "${STOCK_DIRS_FOUND}" -gt 0 ]]; then
+    return 0
   fi
 
-  return 0
+  if [[ "${GOOGLE_PKGS_FOUND}" -eq 0 ]]; then
+    echo "[PASS] Stock overlay directories: None detected (clean device, nothing to suppress)"
+    return 0
+  fi
+
+  echo "[FAIL] Stock overlay directories: None detected (unsupported or unrecognized partition layout)"
+  return 1
 }
 
 check_microg_conflicts() {
@@ -483,24 +490,53 @@ check_signature_spoofing() {
   echo "[WARN] Signature spoofing: UNKNOWN (ADB cannot verify signature spoofing; check microG Self-Check app after reboot)"
 }
 
-print_data_update_cleanup() {
-  if [[ ${#DATA_UPDATE_PKGS[@]} -eq 0 ]]; then
-    echo "No conflicting /data package updates detected."
-    echo ""
+get_pm_cmd_prefix() {
+  if [[ "${IS_LOCAL_MODE}" -eq 1 ]]; then
+    echo "pm"
     return 0
   fi
+  echo "adb shell pm"
+}
 
-  local cmd_prefix="adb shell pm"
-  if [[ "${IS_LOCAL_MODE}" -eq 1 ]]; then
-    cmd_prefix="pm"
-  fi
+print_uninstall_commands() {
+  local cmd_prefix
+  cmd_prefix="$(get_pm_cmd_prefix)"
 
   echo "Active /data package updates detected! Run these commands to prevent downgrade conflicts:"
-  for pkg in "${DATA_UPDATE_PKGS[@]}"; do
+  for pkg in "$@"; do
     echo "  ${cmd_prefix} uninstall --user 0 ${pkg}"
-    echo "  ${cmd_prefix} clear ${pkg}"
   done
   echo ""
+}
+
+print_gsf_data_note() {
+  for pkg in "${DATA_UPDATE_PKGS[@]}"; do
+    if [[ "${pkg}" == "com.google.android.gsf" ]]; then
+      echo "Notice: com.google.android.gsf /data update detected (not suppressed by module; clean flash required)."
+      echo ""
+      return 0
+    fi
+  done
+}
+
+print_data_update_cleanup() {
+  local uninstall_pkgs=()
+  for pkg in "${DATA_UPDATE_PKGS[@]}"; do
+    case "${pkg}" in
+      com.google.android.gms|com.android.vending)
+        uninstall_pkgs+=("${pkg}")
+        ;;
+    esac
+  done
+
+  if [[ ${#uninstall_pkgs[@]} -gt 0 ]]; then
+    print_uninstall_commands "${uninstall_pkgs[@]}"
+  elif [[ ${#DATA_UPDATE_PKGS[@]} -eq 0 ]]; then
+    echo "No conflicting /data package updates detected."
+    echo ""
+  fi
+
+  print_gsf_data_note
 }
 
 print_system_cleanup_note() {
