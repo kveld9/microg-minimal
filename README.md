@@ -48,7 +48,15 @@ Get the latest `microg-minimal-*.zip` from the GitHub Releases page of this repo
 3. Go to Modules -> Install from storage and select the zip.
 4. Reboot when the install finishes.
 
-### 3. Uninstall
+### 3. Set up microG
+
+- **Self-Check**: Open microG Settings and run Self-Check; every item must pass. If signature spoofing fails, stop: this is a ROM or patch issue that the module cannot fix (see the [Before Installing](#before-installing) signature spoofing requirement).
+- **Permissions**: Grant all requested permissions when prompted.
+- **Google Account & Cloud Messaging**: Add your Google account if needed, then enable device registration and Cloud Messaging.
+- **Location & Battery**: Enable Wi-Fi and cell location backends as offered. Set battery usage to Unrestricted for microG so push notifications and location updates survive doze.
+- **Final steps**: Reboot once more if Self-Check requests it. Re-run the preflight check only if something looks wrong.
+
+### 4. Uninstall
 
 1. In the manager app, remove `microG Minimal` from Modules.
 2. Reboot. The stock system apps come back automatically.
