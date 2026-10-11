@@ -19,7 +19,7 @@ jobs:
       - name: Validate Shell Script Syntax
         run: |
           set -euo pipefail
-          bash -n scripts/*.sh customize.sh uninstall.sh META-INF/com/google/android/update-binary
+          bash -n scripts/*.sh customize.sh.template uninstall.sh META-INF/com/google/android/update-binary
       - name: Run ShellCheck (project scripts)
         run: |
           set -euo pipefail
@@ -30,7 +30,7 @@ jobs:
         run: |
           set -euo pipefail
           # SC2034 excluded: REPLACE/UMASK/BOOTMODE belong to the portable Magisk installer contract and are consumed externally.
-          shellcheck --severity=warning --exclude=SC2034 customize.sh META-INF/com/google/android/update-binary
+          shellcheck --severity=warning --exclude=SC2034 customize.sh.template META-INF/com/google/android/update-binary
       - name: Check Metadata Consistency
         run: |
           set -euo pipefail
@@ -78,3 +78,5 @@ jobs:
           ./scripts/build-module.sh --skeleton
           ls -la dist/*-skeleton.zip
           zip -T dist/*-skeleton.zip
+          unzip -p dist/*-skeleton.zip customize.sh > /tmp/rendered-customize.sh
+          shellcheck --severity=warning --exclude=SC2034 /tmp/rendered-customize.sh

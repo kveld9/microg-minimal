@@ -10,7 +10,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSIONS_FILE="${REPO_ROOT}/versions.env"
 
 TARGET_SERIAL=""
-API_FLOOR=""
+MIN_SDK_LEVEL=""
 STOCK_DIRS_FOUND=0
 GSF_DIR_FOUND=0
 BLOCKING_VERDICT=0
@@ -18,7 +18,7 @@ FAILING_CHECK=""
 
 DEVICE_MODEL=""
 DEVICE_CODENAME=""
-DEVICE_API=""
+DEVICE_SDK_LEVEL=""
 ROOT_MANAGER_FINDING="None detected"
 
 declare -a DATA_UPDATE_PKGS=()
@@ -74,7 +74,7 @@ load_environment() {
   . "${VERSIONS_FILE}"
 }
 
-parse_template_api_floor() {
+parse_template_min_sdk_level() {
   local template_file="${REPO_ROOT}/customize.sh.template"
   if [[ ! -f "${template_file}" ]]; then
     return 1
@@ -82,20 +82,20 @@ parse_template_api_floor() {
   grep -E 'if \[ "\$API" -lt [0-9]+ \]; then' "${template_file}" | grep -o -E '[0-9]+' | head -n 1
 }
 
-resolve_api_floor() {
+resolve_min_sdk_level() {
   if [[ -n "${MODULE_MIN_API:-}" ]]; then
-    API_FLOOR="${MODULE_MIN_API}"
+    MIN_SDK_LEVEL="${MODULE_MIN_API}"
     return 0
   fi
 
   local parsed
-  parsed="$(parse_template_api_floor || true)"
+  parsed="$(parse_template_min_sdk_level || true)"
   if [[ -n "${parsed}" ]]; then
-    API_FLOOR="${parsed}"
+    MIN_SDK_LEVEL="${parsed}"
     return 0
   fi
 
-  echo "Error: Failed to resolve API floor from versions.env or customize.sh.template" >&2
+  echo "Error: Failed to resolve minimum SDK level from versions.env or customize.sh.template" >&2
   exit 1
 }
 
@@ -140,24 +140,24 @@ collect_device_info() {
   DEVICE_CODENAME="$(adb_cmd shell getprop ro.product.device 2>/dev/null | tr -d '\r' || true)"
 }
 
-check_api_level() {
-  local api_val
-  api_val="$(adb_cmd shell getprop ro.build.version.sdk 2>/dev/null | tr -d '\r' || true)"
-  DEVICE_API="${api_val}"
+check_sdk_level() {
+  local sdk_val
+  sdk_val="$(adb_cmd shell getprop ro.build.version.sdk 2>/dev/null | tr -d '\r' || true)"
+  DEVICE_SDK_LEVEL="${sdk_val}"
 
-  if [[ -z "${api_val}" || ! "${api_val}" =~ ^[0-9]+$ ]]; then
+  if [[ -z "${sdk_val}" || ! "${sdk_val}" =~ ^[0-9]+$ ]]; then
     echo "[FAIL] Unable to read Android SDK API level from device." >&2
     FAILING_CHECK="Unable to read Android SDK API level from device"
     return 1
   fi
 
-  if (( api_val < API_FLOOR )); then
-    echo "[FAIL] Android API level: ${api_val} (below minimum floor ${API_FLOOR}). Incompatible device."
-    FAILING_CHECK="Android API level ${api_val} is below minimum floor (${API_FLOOR})"
+  if (( sdk_val < MIN_SDK_LEVEL )); then
+    echo "[FAIL] Android API level: ${sdk_val} (below minimum floor ${MIN_SDK_LEVEL}). Incompatible device."
+    FAILING_CHECK="Android API level ${sdk_val} is below minimum floor (${MIN_SDK_LEVEL})"
     return 1
   fi
 
-  echo "[PASS] Android API level: ${api_val} (meets minimum floor: ${API_FLOOR})"
+  echo "[PASS] Android API level: ${sdk_val} (meets minimum floor: ${MIN_SDK_LEVEL})"
   return 0
 }
 
@@ -415,7 +415,7 @@ print_support_report() {
   echo "- **Module Version:** ${MODULE_VERSION:-unknown}"
   echo "- **Device Model:** ${DEVICE_MODEL:-unknown}"
   echo "- **Device Codename:** ${DEVICE_CODENAME:-unknown}"
-  echo "- **Android API Level:** ${DEVICE_API:-unknown} (Floor: ${API_FLOOR})"
+  echo "- **Android API Level:** ${DEVICE_SDK_LEVEL:-unknown} (Floor: ${MIN_SDK_LEVEL})"
   echo "- **Root Manager:** ${ROOT_MANAGER_FINDING:-None detected}"
   echo "- **Detected Stock Dirs:** ${dirs_str}"
   echo "- **Detected Stock Packages:** ${pkgs_str}"
@@ -431,7 +431,7 @@ run_all_inspections() {
   local packages_cache
   packages_cache="$(adb_cmd shell pm list packages 2>/dev/null | tr -d '\r' || true)"
 
-  check_api_level || BLOCKING_VERDICT=1
+  check_sdk_level || BLOCKING_VERDICT=1
   detect_root_traces "${packages_cache}"
   check_stock_packages
   check_mindthegapps_packages "${packages_cache}"
@@ -450,7 +450,7 @@ run_all_inspections() {
 main() {
   parse_arguments "$@"
   load_environment
-  resolve_api_floor
+  resolve_min_sdk_level
 
   check_adb_binary || exit 1
   check_adb_device || exit 1
