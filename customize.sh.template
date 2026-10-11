@@ -40,7 +40,7 @@ validate_sdk() {
   fi
 
   if [ "$API" -gt 28 ]; then
-    ui_print "- Notice: Detected API $API. Module baseline is API 28 (Android 9 Go)."
+    ui_print "- Notice: Detected API $API. Module supports Android 8.1+ across legacy, Go and standard layouts."
   fi
 }
 
