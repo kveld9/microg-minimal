@@ -16,9 +16,9 @@ On affected devices (Android Go, standard Android, and legacy layouts), the stoc
 - No Zygisk required.
 
 ## Before Installing
-
-Run the preflight check script from your host machine with the device connected via USB:
-
+ 
+Run the preflight check script from your host computer (not on the device or inside Termux) with bash and host ADB over USB debugging:
+ 
 ```bash
 ./scripts/check-device.sh
 ```

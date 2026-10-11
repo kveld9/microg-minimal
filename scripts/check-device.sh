@@ -4,6 +4,16 @@
 # Strictly READ-ONLY: Never modifies the connected device.
 # Only inspects device state using non-destructive commands
 # (getprop, pm list/path, dumpsys, test/ls).
+# POSIX re-exec guard: Ensure execution under bash on the host system.
+if [ -z "${BASH_VERSION:-}" ]; then
+  if command -v bash >/dev/null 2>&1; then
+    exec bash "$0" "$@"
+  else
+    echo "Error: check-device.sh requires bash. Run 'bash scripts/check-device.sh' on a host computer with ADB." >&2
+    exit 1
+  fi
+fi
+
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -34,6 +44,7 @@ Host-side ADB preflight device inspection for microG Minimal.
 Strictly READ-ONLY: This script never modifies the connected device. It only
 queries device properties (getprop, pm list/path, dumpsys, test/ls) to verify
 compatibility and detect conflicting stock packages.
+Requires bash and host ADB with USB debugging connected (run on PC/host, not on-device).
 
 Options:
   -s, --serial <SERIAL>  Target specific ADB device serial number.
