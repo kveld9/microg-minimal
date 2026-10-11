@@ -2,6 +2,21 @@
 
 All notable changes to the microG Minimal Magisk module will be documented in this file.
 
+## [v0.3.18] - 2026-10-11
+
+### Added
+- Multi-layout support covering standard Android `system/product` alongside Go partitions.
+- Compatibility overlays for Android 8.1 legacy `PrebuiltGmsCore`, `PrebuiltGmsCorePi`, and `PrebuiltGmsCorePix` layouts.
+- Packaged microG priv-app permissions, default permissions, and sysconfig XML definitions.
+- Custom ROM GApps suite coverage including MindTheGapps, NikGapps, BitGapps, and OpenGapps.
+- Standalone ADB host and on-device `scripts/check-device.sh` diagnostic check tool with automated cleanup guidance.
+- Installer auto-disable for conflicting GApps overlays and automated cleanup of existing `/data/app` updates at flash time.
+
+### Fixed
+- Overlay candidate validation to ensure only system packages are targeted before disabling.
+- Preflight automatic shell re-execution under Bash with transport discovery on host and device.
+- CI installer template paths and variable linting.
+
 ## [v0.3.17] - 2026-10-10
 
 ### Added
