@@ -228,6 +228,49 @@ disable_gapps_overlay() {
   esac
 }
 
+# Qualifies a candidate overlay package before disabling.
+# Falls back to verifying codePath is outside /data when -s is unsupported.
+qualify_gapps_candidate() {
+  pkg="$1"
+  family="$2"
+  fallback="$3"
+
+  if [ "$fallback" -eq 0 ]; then
+    disable_gapps_overlay "$pkg" "$family"
+    return 0
+  fi
+
+  pkg_path="$(pm path "$pkg" 2>/dev/null | tr -d '\r' || true)"
+  case "$pkg_path" in
+    */data/*)
+      ui_print "! Warning: Skipping $pkg ($family): codePath is in /data (user app)."
+      ;;
+    package:/*|/*)
+      disable_gapps_overlay "$pkg" "$family"
+      ;;
+    *)
+      ui_print "! Warning: Skipping $pkg ($family): package path undeterminable."
+      ;;
+  esac
+}
+
+handle_gapps_candidate() {
+  line="$1"
+  fallback="$2"
+
+  case "$line" in
+    package:com.mtg.*)
+      qualify_gapps_candidate "${line#package:}" "MindTheGapps" "$fallback"
+      ;;
+    package:com.nikgapps.overlay.*)
+      qualify_gapps_candidate "${line#package:}" "NikGapps" "$fallback"
+      ;;
+    package:com.bitgapps.*)
+      qualify_gapps_candidate "${line#package:}" "BitGapps" "$fallback"
+      ;;
+  esac
+}
+
 disable_gapps_overlays() {
   if ! command -v pm >/dev/null 2>&1; then
     ui_print "- Notice: pm not available in installer environment; skipping overlay check."
@@ -236,18 +279,18 @@ disable_gapps_overlays() {
 
   ui_print "- Checking for conflicting GApps overlay packages..."
   # Branded overlay package prefixes are intrinsic upstream identifiers.
-  pm list packages 2>/dev/null | tr -d '\r' | while IFS= read -r line || [ -n "$line" ]; do
-    case "$line" in
-      package:com.mtg.*)
-        disable_gapps_overlay "${line#package:}" "MindTheGapps"
-        ;;
-      package:com.nikgapps.overlay.*)
-        disable_gapps_overlay "${line#package:}" "NikGapps"
-        ;;
-      package:com.bitgapps.*)
-        disable_gapps_overlay "${line#package:}" "BitGapps"
-        ;;
-    esac
+  pkg_list="$(pm list packages -s 2>/dev/null || true)"
+  fallback=0
+  case "$pkg_list" in
+    *package:*) ;;
+    *)
+      pkg_list="$(pm list packages 2>/dev/null || true)"
+      fallback=1
+      ;;
+  esac
+
+  echo "$pkg_list" | tr -d '\r' | while IFS= read -r line || [ -n "$line" ]; do
+    handle_gapps_candidate "$line" "$fallback"
   done
 }
 
