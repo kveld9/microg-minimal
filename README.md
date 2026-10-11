@@ -26,7 +26,7 @@ Run the preflight check script from your host machine with the device connected 
 Pre-flash checklist:
 - **Clean flash without GApps**: If the ROM includes pre-installed GApps (stock OEM or GApps-bundled custom ROMs), clean-flash a vanilla ROM without GApps.
 - **Signature spoofing**: The ROM must support signature spoofing (verify with microG Self-Check after install; this module does not provide spoofing).
-- **No `/data` updates**: The installer automatically removes conflicting stock updates in `/data` with an on-screen notice during flash. Run `./scripts/check-device.sh` beforehand to inspect active updates and verify device compatibility.
+- **No `/data` updates**: The installer automatically removes conflicting stock updates in `/data` and disables MindTheGapps overlays for the current user with an on-screen notice during flash. Run `./scripts/check-device.sh` beforehand to inspect active updates and verify device compatibility.
 - **Unsupported layouts**: If the preflight check reports an incompatible API or unrecognized partition layout, open an issue using the Device Support template and paste the generated report.
 
 ## Install

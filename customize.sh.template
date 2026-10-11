@@ -187,6 +187,49 @@ remove_data_updates() {
   done
 }
 
+# Disables a MindTheGapps overlay package for user 0 using pm uninstall --user 0.
+# System partition files remain untouched and reversible via pm install-existing.
+disable_gapps_overlay() {
+  pkg="$1"
+  if [ -z "$pkg" ]; then
+    return 0
+  fi
+
+  ui_print "********************************************************"
+  ui_print "! WARNING: Conflicting MindTheGapps overlay detected: $pkg"
+  ui_print "! Disabling overlay for user 0 via 'pm uninstall --user 0 $pkg'..."
+  ui_print "********************************************************"
+
+  pm_out="$(pm uninstall --user 0 "$pkg" 2>&1 || true)"
+  case "$pm_out" in
+    *Success*)
+      ui_print "- Successfully disabled overlay $pkg (user 0)."
+      ui_print "! Notice: Only user 0 was disabled (system files untouched). Reversible via: pm install-existing $pkg"
+      ;;
+    *)
+      ui_print "! Warning: Failed to disable overlay $pkg (${pm_out:-unknown})."
+      ui_print "! Manual disable recommended: pm uninstall --user 0 $pkg"
+      ;;
+  esac
+}
+
+disable_gapps_overlays() {
+  if ! command -v pm >/dev/null 2>&1; then
+    ui_print "- Notice: pm not available in installer environment; skipping overlay check."
+    return 0
+  fi
+
+  ui_print "- Checking for conflicting MindTheGapps overlay packages..."
+  # MindTheGapps overlay package prefix is an intrinsic upstream identifier.
+  pm list packages 2>/dev/null | tr -d '\r' | while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      package:com.mtg.*)
+        disable_gapps_overlay "${line#package:}"
+        ;;
+    esac
+  done
+}
+
 apply_permissions() {
   ui_print "- Setting file permissions..."
   set_perm_recursive "$MODPATH" 0 0 0755 0644
@@ -206,6 +249,9 @@ main() {
 
   # Remove conflicting /data updates for stock packages if present
   remove_data_updates
+
+  # Disable conflicting MindTheGapps overlays for user 0 if present
+  disable_gapps_overlays
 
   ui_print "- Configured microG permission and sysconfig overlays."
 
