@@ -32,7 +32,7 @@ su -c bash check-device.sh --local
 Pre-flash checklist:
 - **Clean flash without GApps**: If the ROM includes pre-installed GApps (stock OEM or GApps-bundled custom ROMs), clean-flash a vanilla ROM without GApps.
 - **Signature spoofing**: The ROM must support signature spoofing (this module does not provide it). If missing, switch to a spoofing-capable ROM (such as LineageOS for microG) or apply a FakeGApps patch via LSPosed, then verify in microG Self-Check.
-- **No `/data` updates**: The installer automatically removes conflicting stock updates in `/data` and disables MindTheGapps, NikGapps, and BitGapps overlays for the current user with an on-screen notice during flash. Run `./scripts/check-device.sh` beforehand to inspect active updates and verify device compatibility.
+- **No `/data` updates**: The installer automatically removes conflicting Play Services and Play Store updates in `/data` and invalidates caches, but does not touch overlays. Uninstallation re-enables overlays disabled by older module versions (/data updates are not restored). Run `./scripts/check-device.sh` beforehand to inspect active updates and verify device compatibility.
 - **Unsupported layouts**: If the preflight check reports an incompatible API or unrecognized partition layout, open an issue using the Device Support template and paste the generated report.
 
 ## Install
