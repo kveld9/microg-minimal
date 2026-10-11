@@ -8,10 +8,14 @@
 if [ -z "${BASH_VERSION:-}" ]; then
   if command -v bash >/dev/null 2>&1; then
     exec bash "$0" "$@"
-  else
-    echo "Error: check-device.sh requires bash. Run 'bash scripts/check-device.sh' on host with ADB or in Termux with bash." >&2
-    exit 1
   fi
+  for _b in /data/data/com.termux/files/usr/bin/bash /system/bin/bash; do
+    if [ -x "$_b" ]; then
+      exec "$_b" "$0" "$@"
+    fi
+  done
+  echo "Error: check-device.sh requires bash. Run 'bash scripts/check-device.sh' on host with ADB or in Termux with bash." >&2
+  exit 1
 fi
 
 set -euo pipefail
@@ -148,8 +152,12 @@ resolve_min_sdk_level() {
   exit 1
 }
 
+has_local_android_tools() {
+  command -v getprop >/dev/null 2>&1 && command -v pm >/dev/null 2>&1
+}
+
 is_local_android_env() {
-  ! command -v adb >/dev/null 2>&1 && command -v getprop >/dev/null 2>&1 && command -v pm >/dev/null 2>&1
+  ! command -v adb >/dev/null 2>&1 && has_local_android_tools
 }
 
 detect_transport_mode() {
@@ -213,6 +221,11 @@ check_adb_device() {
   fi
 
   if [[ "${state_out}" != "device" ]]; then
+    if [[ -z "${TARGET_SERIAL:-}" ]] && has_local_android_tools; then
+      IS_LOCAL_MODE=1
+      echo "Notice: No authorized ADB device found (${state_out}), but local Android tools detected. Falling back to local on-device mode." >&2
+      return 0
+    fi
     echo "[FAIL] No authorized ADB device detected (${state_out})." >&2
     echo "Connect device via USB, enable Developer Options and USB Debugging in device Settings." >&2
     return 1
