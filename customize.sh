@@ -11,12 +11,16 @@
 REPLACE="
 /system/priv-app/GmsCoreGo
 /system/priv-app/Phonesky
+/system/product/priv-app/GmsCore
+/system/product/priv-app/Phonesky
+/product/priv-app/GmsCore
+/product/priv-app/Phonesky
 "
 
 print_banner() {
   ui_print "****************************************"
   ui_print " microG Minimal - Split-APK Suppressor  "
-  ui_print " Target: Android 9 Go (API 28, armv7)   "
+  ui_print " Target: Android 9+ (Go & Standard)     "
   ui_print "****************************************"
 }
 
@@ -46,6 +50,37 @@ validate_arch() {
   fi
 }
 
+check_stock_dir() {
+  target_dir="$1"
+  if [ -d "$target_dir" ]; then
+    ui_print "- Detected stock package directory: $target_dir"
+    return 0
+  fi
+  return 1
+}
+
+detect_stock_layout() {
+  ui_print "- Inspecting device stock package layout..."
+  detected=0
+
+  for stock_path in \
+    /system/priv-app/GmsCoreGo \
+    /system/priv-app/Phonesky \
+    /product/priv-app/GmsCore \
+    /system/product/priv-app/GmsCore \
+    /product/priv-app/Phonesky \
+    /system/product/priv-app/Phonesky
+  do
+    if check_stock_dir "$stock_path"; then
+      detected=1
+    fi
+  done
+
+  if [ "$detected" -eq 0 ]; then
+    ui_print "- Notice: No stock GmsCore or Phonesky dirs detected on active partitions."
+  fi
+}
+
 ensure_replace_marker() {
   target_dir="$1"
   marker_path="$target_dir/.replace"
@@ -57,6 +92,13 @@ ensure_replace_marker() {
   ui_print "- Restoring missing .replace marker in $target_dir"
   mkdir -p "$target_dir"
   touch "$marker_path"
+}
+
+ensure_shipped_markers() {
+  ensure_replace_marker "$MODPATH/system/priv-app/GmsCoreGo"
+  ensure_replace_marker "$MODPATH/system/priv-app/Phonesky"
+  ensure_replace_marker "$MODPATH/system/product/priv-app/GmsCore"
+  ensure_replace_marker "$MODPATH/system/product/priv-app/Phonesky"
 }
 
 verify_payload_apk() {
@@ -71,6 +113,16 @@ verify_payload_apk() {
   abort "! Missing $component_name at $apk_path. Build module using scripts/build-module.sh."
 }
 
+verify_all_payloads() {
+  # Go layout payloads
+  verify_payload_apk "$MODPATH/system/priv-app/GmsCoreGo/GmsCoreGo.apk" "GmsCoreGo"
+  verify_payload_apk "$MODPATH/system/priv-app/Phonesky/Phonesky.apk" "Phonesky (Go)"
+
+  # Standard layout payloads
+  verify_payload_apk "$MODPATH/system/product/priv-app/GmsCore/GmsCore.apk" "GmsCore (Standard)"
+  verify_payload_apk "$MODPATH/system/product/priv-app/Phonesky/Phonesky.apk" "Phonesky (Standard)"
+}
+
 apply_permissions() {
   ui_print "- Setting file permissions..."
   set_perm_recursive "$MODPATH" 0 0 0755 0644
@@ -80,19 +132,18 @@ main() {
   print_banner
   validate_sdk
   validate_arch
+  detect_stock_layout
 
-  # Ensure directory suppression markers exist
-  ensure_replace_marker "$MODPATH/system/priv-app/GmsCoreGo"
-  ensure_replace_marker "$MODPATH/system/priv-app/Phonesky"
+  # Ensure directory suppression markers exist for all layouts
+  ensure_shipped_markers
 
-  # Validate packaged microG APKs
-  verify_payload_apk "$MODPATH/system/priv-app/GmsCoreGo/GmsCoreGo.apk" "GmsCoreGo"
-  verify_payload_apk "$MODPATH/system/priv-app/Phonesky/Phonesky.apk" "Phonesky"
+  # Validate packaged microG APKs for all layouts
+  verify_all_payloads
 
   apply_permissions
 
   ui_print "- microG Minimal installation completed."
-  ui_print "- Stock split-APKs suppressed via .replace overlays."
+  ui_print "- Stock packages suppressed via .replace overlays."
   ui_print "- Reboot device to activate microG services."
 }
 

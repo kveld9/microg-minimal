@@ -3,8 +3,9 @@
 #
 # Magisk removes the module directory ($MODPATH) automatically upon reboot.
 # Once uninstalled and the device reboots, the systemless overlays covering
-# /system/priv-app/GmsCoreGo and /system/priv-app/Phonesky are removed,
-# cleanly restoring stock system partitions and stock packages.
+# Go layouts (/system/priv-app/GmsCoreGo, /system/priv-app/Phonesky) and
+# standard layouts (/product/priv-app/GmsCore, /product/priv-app/Phonesky)
+# are removed, cleanly restoring stock system partitions and stock packages.
 
 # Optional cleanup: invalidate package cache to force fresh scan on next boot
 if [ -d "/data/system/package_cache" ]; then

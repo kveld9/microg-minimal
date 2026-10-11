@@ -3,5 +3,5 @@ name=microG Minimal
 version=v0.3.17
 versionCode=30170
 author=kveld
-description=Minimal systemless microG replacement suppressing stock split GmsCoreGo and Phonesky on Android 9 Go.
+description=Minimal systemless microG replacement suppressing stock GmsCore and Phonesky on Go and standard Android layouts.
 updateJson=https://raw.githubusercontent.com/kveld9/microg-minimal/main/update.json

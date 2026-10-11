@@ -73,6 +73,8 @@ verify_replace_marker() {
 verify_skeleton_markers() {
   verify_replace_marker "${REPO_ROOT}/${GMS_TARGET_DIR}/.replace"
   verify_replace_marker "${REPO_ROOT}/${VENDING_TARGET_DIR}/.replace"
+  verify_replace_marker "${REPO_ROOT}/${GMS_STD_TARGET_DIR}/.replace"
+  verify_replace_marker "${REPO_ROOT}/${VENDING_STD_TARGET_DIR}/.replace"
 }
 
 stage_payload() {
@@ -90,6 +92,18 @@ stage_payload() {
   cp "${src_apk}" "${dest_path}"
 }
 
+ensure_vendor_payloads() {
+  local gms_src="$1"
+  local vending_src="$2"
+
+  if [[ -f "${gms_src}" && -f "${vending_src}" ]]; then
+    return 0
+  fi
+
+  echo "Staged APKs not found in ${VENDOR_DIR}. Invoking fetch-apks.sh..."
+  "${REPO_ROOT}/scripts/fetch-apks.sh"
+}
+
 stage_all_payloads() {
   local stage_dir="$1"
 
@@ -101,13 +115,20 @@ stage_all_payloads() {
   local gms_src="${VENDOR_DIR}/${GMS_TARGET_NAME}"
   local vending_src="${VENDOR_DIR}/${VENDING_TARGET_NAME}"
 
-  if [[ ! -f "${gms_src}" || ! -f "${vending_src}" ]]; then
-    echo "Staged APKs not found in ${VENDOR_DIR}. Invoking fetch-apks.sh..."
-    "${REPO_ROOT}/scripts/fetch-apks.sh"
-  fi
+  ensure_vendor_payloads "${gms_src}" "${vending_src}"
 
-  stage_payload "${gms_src}" "${stage_dir}/${GMS_TARGET_DIR}/${GMS_TARGET_NAME}" "GmsCore"
-  stage_payload "${vending_src}" "${stage_dir}/${VENDING_TARGET_DIR}/${VENDING_TARGET_NAME}" "Phonesky"
+  stage_payload "${gms_src}" "${stage_dir}/${GMS_TARGET_DIR}/${GMS_TARGET_NAME}" "GmsCoreGo"
+  stage_payload "${vending_src}" "${stage_dir}/${VENDING_TARGET_DIR}/${VENDING_TARGET_NAME}" "Phonesky (Go)"
+  stage_payload "${gms_src}" "${stage_dir}/${GMS_STD_TARGET_DIR}/${GMS_STD_TARGET_NAME}" "GmsCore (Standard)"
+  stage_payload "${vending_src}" "${stage_dir}/${VENDING_STD_TARGET_DIR}/${VENDING_STD_TARGET_NAME}" "Phonesky (Standard)"
+}
+
+copy_dir_marker() {
+  local stage_dir="$1"
+  local target_rel_dir="$2"
+
+  mkdir -p "${stage_dir}/${target_rel_dir}"
+  cp "${REPO_ROOT}/${target_rel_dir}/.replace" "${stage_dir}/${target_rel_dir}/"
 }
 
 copy_skeleton_files() {
@@ -122,9 +143,10 @@ copy_skeleton_files() {
   cp "${REPO_ROOT}/META-INF/com/google/android/update-binary" "${stage_dir}/META-INF/com/google/android/"
   cp "${REPO_ROOT}/META-INF/com/google/android/updater-script" "${stage_dir}/META-INF/com/google/android/"
 
-  mkdir -p "${stage_dir}/${GMS_TARGET_DIR}" "${stage_dir}/${VENDING_TARGET_DIR}"
-  cp "${REPO_ROOT}/${GMS_TARGET_DIR}/.replace" "${stage_dir}/${GMS_TARGET_DIR}/"
-  cp "${REPO_ROOT}/${VENDING_TARGET_DIR}/.replace" "${stage_dir}/${VENDING_TARGET_DIR}/"
+  copy_dir_marker "${stage_dir}" "${GMS_TARGET_DIR}"
+  copy_dir_marker "${stage_dir}" "${VENDING_TARGET_DIR}"
+  copy_dir_marker "${stage_dir}" "${GMS_STD_TARGET_DIR}"
+  copy_dir_marker "${stage_dir}" "${VENDING_STD_TARGET_DIR}"
 }
 
 create_zip() {
