@@ -16,11 +16,17 @@ On affected devices (Android Go, standard Android, and legacy layouts), the stoc
 - No Zygisk required.
 
 ## Before Installing
- 
-Run the preflight check script from your host computer (not on the device or inside Termux) with bash and host ADB over USB debugging:
- 
+
+Run the preflight check script from your host computer with bash and host ADB over USB debugging:
+
 ```bash
 ./scripts/check-device.sh
+```
+
+Alternatively, copy the script to the device or run from Termux with root:
+
+```bash
+su -c bash check-device.sh --local
 ```
 
 Pre-flash checklist:

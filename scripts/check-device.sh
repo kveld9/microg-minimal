@@ -4,12 +4,12 @@
 # Strictly READ-ONLY: Never modifies the connected device.
 # Only inspects device state using non-destructive commands
 # (getprop, pm list/path, dumpsys, test/ls).
-# POSIX re-exec guard: Ensure execution under bash on the host system.
+# POSIX re-exec guard: Ensure execution under bash on the host system or on-device.
 if [ -z "${BASH_VERSION:-}" ]; then
   if command -v bash >/dev/null 2>&1; then
     exec bash "$0" "$@"
   else
-    echo "Error: check-device.sh requires bash. Run 'bash scripts/check-device.sh' on a host computer with ADB." >&2
+    echo "Error: check-device.sh requires bash. Run 'bash scripts/check-device.sh' on host with ADB or in Termux with bash." >&2
     exit 1
   fi
 fi
@@ -20,6 +20,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSIONS_FILE="${REPO_ROOT}/versions.env"
 
 TARGET_SERIAL=""
+IS_LOCAL_MODE=0
 MIN_SDK_LEVEL=""
 STOCK_DIRS_FOUND=0
 GSF_DIR_FOUND=0
@@ -40,16 +41,34 @@ print_usage() {
   cat <<'EOF'
 Usage: check-device.sh [OPTIONS]
 
-Host-side ADB preflight device inspection for microG Minimal.
+ADB / on-device preflight device inspection for microG Minimal.
 Strictly READ-ONLY: This script never modifies the connected device. It only
 queries device properties (getprop, pm list/path, dumpsys, test/ls) to verify
 compatibility and detect conflicting stock packages.
-Requires bash and host ADB with USB debugging connected (run on PC/host, not on-device).
+Supports both host ADB mode (PC connected via USB) and local on-device mode (rooted shell / Termux).
 
 Options:
-  -s, --serial <SERIAL>  Target specific ADB device serial number.
+  --local                Run directly on-device using local Android tools (Termux / root shell).
+  -s, --serial <SERIAL>  Target specific ADB device serial number (host mode).
   -h, --help             Display this help message and exit.
 EOF
+}
+
+handle_local_arg() {
+  IS_LOCAL_MODE=1
+  if [[ -n "${TARGET_SERIAL}" ]]; then
+    echo "Notice: Running in local on-device mode; ignoring serial '${TARGET_SERIAL}'." >&2
+    TARGET_SERIAL=""
+  fi
+}
+
+handle_serial_arg() {
+  local serial_val="$1"
+  if [[ "${IS_LOCAL_MODE}" -eq 1 ]]; then
+    echo "Notice: Running in local on-device mode; ignoring serial '${serial_val}'." >&2
+    return 0
+  fi
+  TARGET_SERIAL="${serial_val}"
 }
 
 parse_arguments() {
@@ -59,12 +78,16 @@ parse_arguments() {
         print_usage
         exit 0
         ;;
+      --local)
+        handle_local_arg
+        shift
+        ;;
       -s|--serial)
         if [[ $# -lt 2 ]]; then
           echo "Error: Missing serial argument for $1" >&2
           exit 1
         fi
-        TARGET_SERIAL="$2"
+        handle_serial_arg "$2"
         shift 2
         ;;
       *)
@@ -77,12 +100,20 @@ parse_arguments() {
 }
 
 load_environment() {
-  if [[ ! -f "${VERSIONS_FILE}" ]]; then
-    echo "Error: versions.env not found at ${VERSIONS_FILE}" >&2
-    exit 1
+  if [[ -f "${VERSIONS_FILE}" ]]; then
+    # shellcheck source=../versions.env
+    . "${VERSIONS_FILE}"
+    return 0
   fi
-  # shellcheck source=../versions.env
-  . "${VERSIONS_FILE}"
+
+  # versions.env remains the single source of truth; fallback exists solely for standalone on-device copies.
+  if [[ "${IS_LOCAL_MODE}" -eq 1 ]] || is_local_android_env; then
+    echo "Warning: versions.env not found; operating in standalone mode using built-in SDK defaults." >&2
+    return 0
+  fi
+
+  echo "Error: versions.env not found at ${VERSIONS_FILE}" >&2
+  exit 1
 }
 
 parse_template_min_sdk_level() {
@@ -106,11 +137,47 @@ resolve_min_sdk_level() {
     return 0
   fi
 
+  # versions.env remains the single source of truth; fallback exists solely for standalone on-device copies.
+  if [[ "${IS_LOCAL_MODE}" -eq 1 ]]; then
+    echo "Warning: Unable to parse API floor from versions.env or template; falling back to default SDK floor 27." >&2
+    MIN_SDK_LEVEL="27"
+    return 0
+  fi
+
   echo "Error: Failed to resolve minimum SDK level from versions.env or customize.sh.template" >&2
   exit 1
 }
 
+is_local_android_env() {
+  ! command -v adb >/dev/null 2>&1 && command -v getprop >/dev/null 2>&1 && command -v pm >/dev/null 2>&1
+}
+
+detect_transport_mode() {
+  if [[ "${IS_LOCAL_MODE}" -eq 1 ]]; then
+    return 0
+  fi
+  if is_local_android_env; then
+    IS_LOCAL_MODE=1
+    echo "Notice: ADB binary not found, but local Android tools detected. Enabling local on-device mode." >&2
+  fi
+}
+
+exec_local_cmd() {
+  if [[ $# -gt 0 && "$1" == "shell" ]]; then
+    shift
+  fi
+  if [[ $# -eq 1 ]]; then
+    sh -c "$1"
+    return $?
+  fi
+  "$@"
+}
+
 adb_cmd() {
+  if [[ "${IS_LOCAL_MODE}" -eq 1 ]]; then
+    exec_local_cmd "$@"
+    return $?
+  fi
   if [[ -n "${TARGET_SERIAL:-}" ]]; then
     adb -s "${TARGET_SERIAL}" "$@"
     return $?
@@ -119,15 +186,23 @@ adb_cmd() {
 }
 
 check_adb_binary() {
+  if [[ "${IS_LOCAL_MODE}" -eq 1 ]]; then
+    return 0
+  fi
   if ! command -v adb >/dev/null 2>&1; then
     echo "[FAIL] ADB binary not found on PATH." >&2
     echo "Install ADB via your package manager (e.g. android-tools) or Android SDK Platform-Tools." >&2
+    echo "If running directly on an Android device (e.g. Termux), run with --local." >&2
     return 1
   fi
   return 0
 }
 
 check_adb_device() {
+  if [[ "${IS_LOCAL_MODE}" -eq 1 ]]; then
+    echo "Notice: Running in local on-device mode; skipping ADB device authorization check."
+    return 0
+  fi
   local state_out
   state_out="$(adb_cmd get-state 2>&1 | tr -d '\r' || true)"
 
@@ -351,11 +426,15 @@ check_single_stock_dir() {
 
 check_stock_directories() {
   local dirs=(
-    "/${GMS_TARGET_DIR}"
-    "/${VENDING_TARGET_DIR}"
-    "/${GMS_LEGACY_TARGET_DIR}"
-    "/${GMS_STD_TARGET_DIR}"
-    "/${VENDING_STD_TARGET_DIR}"
+    "/${GMS_TARGET_DIR:-system/priv-app/GmsCoreGo}"
+    "/${VENDING_TARGET_DIR:-system/priv-app/Phonesky}"
+    "/${GMS_LEGACY_TARGET_DIR:-system/priv-app/PrebuiltGmsCore}"
+    "/${GMS_LEGACY_PI_TARGET_DIR:-system/priv-app/PrebuiltGmsCorePi}"
+    "/${GMS_LEGACY_PIX_TARGET_DIR:-system/priv-app/PrebuiltGmsCorePix}"
+    "/${GMS_PROD_LEGACY_TARGET_DIR:-system/product/priv-app/PrebuiltGmsCore}"
+    "/${GMS_STD_TARGET_DIR:-system/product/priv-app/GmsCore}"
+    "/${VENDING_STD_TARGET_DIR:-system/product/priv-app/Phonesky}"
+    "/product/priv-app/PrebuiltGmsCore"
     "/product/priv-app/GmsCore"
     "/product/priv-app/Phonesky"
     "/system/priv-app/GoogleServicesFramework"
@@ -398,10 +477,15 @@ print_data_update_cleanup() {
     return 0
   fi
 
+  local cmd_prefix="adb shell pm"
+  if [[ "${IS_LOCAL_MODE}" -eq 1 ]]; then
+    cmd_prefix="pm"
+  fi
+
   echo "Active /data package updates detected! Run these commands to prevent downgrade conflicts:"
   for pkg in "${DATA_UPDATE_PKGS[@]}"; do
-    echo "  adb shell pm uninstall --user 0 ${pkg}"
-    echo "  adb shell pm clear ${pkg}"
+    echo "  ${cmd_prefix} uninstall --user 0 ${pkg}"
+    echo "  ${cmd_prefix} clear ${pkg}"
   done
   echo ""
 }
@@ -505,6 +589,7 @@ run_all_inspections() {
 main() {
   parse_arguments "$@"
   load_environment
+  detect_transport_mode
   resolve_min_sdk_level
 
   check_adb_binary || exit 1
