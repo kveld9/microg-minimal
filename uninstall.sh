@@ -8,6 +8,11 @@
 # legacy layouts (/system/priv-app/PrebuiltGmsCore, /system/priv-app/Phonesky),
 # and permission/sysconfig configurations are removed, cleanly restoring
 # stock system partitions and stock packages.
+#
+# Note: Conflicting /data updates removed during module installation are NOT
+# restored when the module is uninstalled. The stock ROM system base returns
+# upon reboot, and any subsequent updates can re-download normally via the
+# Play Store or microG update path.
 
 # Optional cleanup: invalidate package cache to force fresh scan on next boot
 if [ -d "/data/system/package_cache" ]; then

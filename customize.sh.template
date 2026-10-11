@@ -129,6 +129,64 @@ verify_all_payloads() {
   verify_payload_apk "$MODPATH/__VENDING_STD_TARGET_DIR__/__VENDING_STD_TARGET_NAME__" "Phonesky (Standard)"
 }
 
+# Detects whether an active /data update exists for a package.
+is_data_update() {
+  pkg="$1"
+  pkg_path="$(pm path "$pkg" 2>/dev/null)"
+
+  if [ -z "$pkg_path" ]; then
+    if command -v dumpsys >/dev/null 2>&1; then
+      pkg_path="$(dumpsys package "$pkg" 2>/dev/null | grep "codePath=" || true)"
+    fi
+  fi
+
+  case "$pkg_path" in
+    */data/*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# Removes /data update for a package using pm uninstall --user 0.
+# Never clears package data, never touches system-base packages or GSF.
+remove_package_data_update() {
+  pkg="$1"
+
+  if ! is_data_update "$pkg"; then
+    return 0
+  fi
+
+  ui_print "********************************************************"
+  ui_print "! WARNING: Conflicting /data update detected for $pkg"
+  ui_print "! Removing /data update via 'pm uninstall --user 0 $pkg'..."
+  ui_print "********************************************************"
+
+  pm_out="$(pm uninstall --user 0 "$pkg" 2>&1 || true)"
+  case "$pm_out" in
+    *Success*)
+      ui_print "- Successfully removed /data update for $pkg (user 0)."
+      ;;
+    *)
+      ui_print "! Warning: Failed to remove /data update for $pkg (${pm_out:-unknown})."
+      ui_print "! Manual cleanup recommended: pm uninstall --user 0 $pkg"
+      ;;
+  esac
+
+  ui_print "! Notice: Only user 0 was uninstalled. Secondary users require manual cleanup."
+}
+
+remove_data_updates() {
+  if ! command -v pm >/dev/null 2>&1; then
+    ui_print "- Notice: pm not available in installer environment; skipping /data update check."
+    return 0
+  fi
+
+  ui_print "- Checking for conflicting /data package updates..."
+  # Stock GmsCore and Play Store package names are intrinsic domain constants.
+  for pkg in com.google.android.gms com.android.vending; do
+    remove_package_data_update "$pkg"
+  done
+}
+
 apply_permissions() {
   ui_print "- Setting file permissions..."
   set_perm_recursive "$MODPATH" 0 0 0755 0644
@@ -145,6 +203,9 @@ main() {
 
   # Validate packaged microG APKs for all layouts
   verify_all_payloads
+
+  # Remove conflicting /data updates for stock packages if present
+  remove_data_updates
 
   ui_print "- Configured microG permission and sysconfig overlays."
 
