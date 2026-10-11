@@ -5,6 +5,7 @@
 # Once uninstalled and the device reboots, the systemless overlays covering
 # Go layouts (/system/priv-app/GmsCoreGo, /system/priv-app/Phonesky),
 # standard layouts (/product/priv-app/GmsCore, /product/priv-app/Phonesky),
+# legacy layouts (/system/priv-app/PrebuiltGmsCore, /system/priv-app/Phonesky),
 # and permission/sysconfig configurations are removed, cleanly restoring
 # stock system partitions and stock packages.
 

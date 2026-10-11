@@ -4,12 +4,12 @@ A systemless root module that replaces the stock Google Play Services and Play S
 
 ## What It Does
 
-On affected devices (both Android Go and standard Android layouts), the stock Play Services and Play Store ship as system packages (including split packages on Go) that cannot be swapped file by file. This module cleanly suppresses those stock packages and provides the microG equivalents as system apps instead.
+On affected devices (Android Go, standard Android, and legacy layouts), the stock Play Services and Play Store ship as system packages (including split packages on Go) that cannot be swapped file by file. This module cleanly suppresses those stock packages and provides the microG equivalents as system apps instead.
 
 ## Compatibility
 
 - Any of these root managers: Magisk, KernelSU family (KernelSU, KernelSU Next, SukiSU), APatch.
-- Android 9 or newer, supporting both Android Go layouts (`system/priv-app/GmsCoreGo` and `Phonesky`) and standard Android layouts (`product/priv-app/GmsCore` and `Phonesky`).
+- Android 8.1 or newer, supporting Android Go layouts (`system/priv-app/GmsCoreGo` and `Phonesky`), standard Android layouts (`product/priv-app/GmsCore` and `Phonesky`), and legacy layouts (`system/priv-app/PrebuiltGmsCore`).
 - Provides the required system permission grants for microG.
 - ARM devices, 32-bit and 64-bit.
 - On the KernelSU family, a system-mount helper (a metamodule such as `meta-overlayfs`) is required for the module files to take effect.
@@ -18,6 +18,7 @@ On affected devices (both Android Go and standard Android layouts), the stock Pl
 ### Prerequisite
 
 Stock Google Apps must be removed or the ROM clean-flashed without GApps before installing this module. Active stock GApps updates or conflicting package signatures will prevent microG services from activating properly.
+The ROM must support signature spoofing, as this module does not provide spoofing functionality.
 
 ## Install
 

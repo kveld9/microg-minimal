@@ -9,10 +9,11 @@
 # directories with the module copies. Magisk ignores this variable and
 # uses the .replace marker files shipped in the module instead.
 REPLACE="
-/system/priv-app/GmsCoreGo
-/system/priv-app/Phonesky
-/system/product/priv-app/GmsCore
-/system/product/priv-app/Phonesky
+/__GMS_TARGET_DIR__
+/__VENDING_TARGET_DIR__
+/__GMS_LEGACY_TARGET_DIR__
+/__GMS_STD_TARGET_DIR__
+/__VENDING_STD_TARGET_DIR__
 /product/priv-app/GmsCore
 /product/priv-app/Phonesky
 "
@@ -20,7 +21,7 @@ REPLACE="
 print_banner() {
   ui_print "****************************************"
   ui_print " microG Minimal - Split-APK Suppressor  "
-  ui_print " Target: Android 9+ (Go & Standard)     "
+  ui_print " Target: Android 8.1+ Legacy/Go/Standard"
   ui_print "****************************************"
 }
 
@@ -30,8 +31,8 @@ validate_sdk() {
     return 0
   fi
 
-  if [ "$API" -lt 28 ]; then
-    abort "! SDK $API detected. Android 9+ (API 28+) is required."
+  if [ "$API" -lt 27 ]; then
+    abort "! SDK $API detected. Android 8.1+ (API 27+) is required."
   fi
 
   if [ "$API" -gt 28 ]; then
@@ -64,12 +65,13 @@ detect_stock_layout() {
   detected=0
 
   for stock_path in \
-    /system/priv-app/GmsCoreGo \
-    /system/priv-app/Phonesky \
+    /__GMS_TARGET_DIR__ \
+    /__VENDING_TARGET_DIR__ \
+    /__GMS_LEGACY_TARGET_DIR__ \
     /product/priv-app/GmsCore \
-    /system/product/priv-app/GmsCore \
+    /__GMS_STD_TARGET_DIR__ \
     /product/priv-app/Phonesky \
-    /system/product/priv-app/Phonesky
+    /__VENDING_STD_TARGET_DIR__
   do
     if check_stock_dir "$stock_path"; then
       detected=1
@@ -95,10 +97,11 @@ ensure_replace_marker() {
 }
 
 ensure_shipped_markers() {
-  ensure_replace_marker "$MODPATH/system/priv-app/GmsCoreGo"
-  ensure_replace_marker "$MODPATH/system/priv-app/Phonesky"
-  ensure_replace_marker "$MODPATH/system/product/priv-app/GmsCore"
-  ensure_replace_marker "$MODPATH/system/product/priv-app/Phonesky"
+  ensure_replace_marker "$MODPATH/__GMS_TARGET_DIR__"
+  ensure_replace_marker "$MODPATH/__VENDING_TARGET_DIR__"
+  ensure_replace_marker "$MODPATH/__GMS_LEGACY_TARGET_DIR__"
+  ensure_replace_marker "$MODPATH/__GMS_STD_TARGET_DIR__"
+  ensure_replace_marker "$MODPATH/__VENDING_STD_TARGET_DIR__"
 }
 
 verify_payload_apk() {
@@ -115,12 +118,15 @@ verify_payload_apk() {
 
 verify_all_payloads() {
   # Go layout payloads
-  verify_payload_apk "$MODPATH/system/priv-app/GmsCoreGo/GmsCoreGo.apk" "GmsCoreGo"
-  verify_payload_apk "$MODPATH/system/priv-app/Phonesky/Phonesky.apk" "Phonesky (Go)"
+  verify_payload_apk "$MODPATH/__GMS_TARGET_DIR__/__GMS_TARGET_NAME__" "GmsCoreGo"
+  verify_payload_apk "$MODPATH/__VENDING_TARGET_DIR__/__VENDING_TARGET_NAME__" "Phonesky (Go)"
+
+  # Legacy layout payloads (Phonesky shared with Go layout)
+  verify_payload_apk "$MODPATH/__GMS_LEGACY_TARGET_DIR__/__GMS_LEGACY_TARGET_NAME__" "GmsCore (Legacy)"
 
   # Standard layout payloads
-  verify_payload_apk "$MODPATH/system/product/priv-app/GmsCore/GmsCore.apk" "GmsCore (Standard)"
-  verify_payload_apk "$MODPATH/system/product/priv-app/Phonesky/Phonesky.apk" "Phonesky (Standard)"
+  verify_payload_apk "$MODPATH/__GMS_STD_TARGET_DIR__/__GMS_STD_TARGET_NAME__" "GmsCore (Standard)"
+  verify_payload_apk "$MODPATH/__VENDING_STD_TARGET_DIR__/__VENDING_STD_TARGET_NAME__" "Phonesky (Standard)"
 }
 
 apply_permissions() {

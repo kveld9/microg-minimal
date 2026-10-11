@@ -73,6 +73,7 @@ verify_replace_marker() {
 verify_skeleton_markers() {
   verify_replace_marker "${REPO_ROOT}/${GMS_TARGET_DIR}/.replace"
   verify_replace_marker "${REPO_ROOT}/${VENDING_TARGET_DIR}/.replace"
+  verify_replace_marker "${REPO_ROOT}/${GMS_LEGACY_TARGET_DIR}/.replace"
   verify_replace_marker "${REPO_ROOT}/${GMS_STD_TARGET_DIR}/.replace"
   verify_replace_marker "${REPO_ROOT}/${VENDING_STD_TARGET_DIR}/.replace"
 }
@@ -119,6 +120,7 @@ stage_all_payloads() {
 
   stage_payload "${gms_src}" "${stage_dir}/${GMS_TARGET_DIR}/${GMS_TARGET_NAME}" "GmsCoreGo"
   stage_payload "${vending_src}" "${stage_dir}/${VENDING_TARGET_DIR}/${VENDING_TARGET_NAME}" "Phonesky (Go)"
+  stage_payload "${gms_src}" "${stage_dir}/${GMS_LEGACY_TARGET_DIR}/${GMS_LEGACY_TARGET_NAME}" "GmsCore (Legacy)"
   stage_payload "${gms_src}" "${stage_dir}/${GMS_STD_TARGET_DIR}/${GMS_STD_TARGET_NAME}" "GmsCore (Standard)"
   stage_payload "${vending_src}" "${stage_dir}/${VENDING_STD_TARGET_DIR}/${VENDING_STD_TARGET_NAME}" "Phonesky (Standard)"
 }
@@ -148,11 +150,61 @@ copy_permission_files() {
   copy_file_to_stage "${stage_dir}" "system/etc/sysconfig/microg.xml"
 }
 
+render_customize_template() {
+  local template_file="$1"
+  local output_file="$2"
+
+  if [[ ! -f "${template_file}" ]]; then
+    echo "Error: customize.sh.template not found at ${template_file}." >&2
+    return 1
+  fi
+
+  sed \
+    -e "s|__GMS_TARGET_DIR__|${GMS_TARGET_DIR}|g" \
+    -e "s|__GMS_TARGET_NAME__|${GMS_TARGET_NAME}|g" \
+    -e "s|__VENDING_TARGET_DIR__|${VENDING_TARGET_DIR}|g" \
+    -e "s|__VENDING_TARGET_NAME__|${VENDING_TARGET_NAME}|g" \
+    -e "s|__GMS_LEGACY_TARGET_DIR__|${GMS_LEGACY_TARGET_DIR}|g" \
+    -e "s|__GMS_LEGACY_TARGET_NAME__|${GMS_LEGACY_TARGET_NAME}|g" \
+    -e "s|__GMS_STD_TARGET_DIR__|${GMS_STD_TARGET_DIR}|g" \
+    -e "s|__GMS_STD_TARGET_NAME__|${GMS_STD_TARGET_NAME}|g" \
+    -e "s|__VENDING_STD_TARGET_DIR__|${VENDING_STD_TARGET_DIR}|g" \
+    -e "s|__VENDING_STD_TARGET_NAME__|${VENDING_STD_TARGET_NAME}|g" \
+    "${template_file}" > "${output_file}"
+
+  chmod 0755 "${output_file}"
+}
+
+verify_rendered_template() {
+  local rendered_file="$1"
+
+  if grep -E '__[A-Z0-9_]+__' "${rendered_file}" >/dev/null 2>&1; then
+    local unreplaced
+    unreplaced="$(grep -o -E '__[A-Z0-9_]+__' "${rendered_file}" | sort -u | tr '\n' ' ')"
+    echo "Error: Unreplaced template tokens detected in ${rendered_file}: ${unreplaced}" >&2
+    return 1
+  fi
+
+  if ! bash -n "${rendered_file}"; then
+    echo "Error: Syntax validation failed for rendered ${rendered_file}." >&2
+    return 1
+  fi
+}
+
+stage_customize_script() {
+  local stage_dir="$1"
+  local template_file="${REPO_ROOT}/customize.sh.template"
+  local output_file="${stage_dir}/customize.sh"
+
+  render_customize_template "${template_file}" "${output_file}"
+  verify_rendered_template "${output_file}"
+}
+
 copy_skeleton_files() {
   local stage_dir="$1"
 
   cp "${REPO_ROOT}/module.prop" "${stage_dir}/"
-  cp "${REPO_ROOT}/customize.sh" "${stage_dir}/"
+  stage_customize_script "${stage_dir}"
   cp "${REPO_ROOT}/uninstall.sh" "${stage_dir}/"
   cp "${REPO_ROOT}/sepolicy.rule" "${stage_dir}/"
 
@@ -162,6 +214,7 @@ copy_skeleton_files() {
 
   copy_dir_marker "${stage_dir}" "${GMS_TARGET_DIR}"
   copy_dir_marker "${stage_dir}" "${VENDING_TARGET_DIR}"
+  copy_dir_marker "${stage_dir}" "${GMS_LEGACY_TARGET_DIR}"
   copy_dir_marker "${stage_dir}" "${GMS_STD_TARGET_DIR}"
   copy_dir_marker "${stage_dir}" "${VENDING_STD_TARGET_DIR}"
 
