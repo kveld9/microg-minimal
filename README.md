@@ -15,10 +15,19 @@ On affected devices (Android Go, standard Android, and legacy layouts), the stoc
 - On the KernelSU family, a system-mount helper (a metamodule such as `meta-overlayfs`) is required for the module files to take effect.
 - No Zygisk required.
 
-### Prerequisite
+## Before Installing
 
-Stock Google Apps must be removed or the ROM clean-flashed without GApps before installing this module. Active stock GApps updates or conflicting package signatures will prevent microG services from activating properly.
-The ROM must support signature spoofing, as this module does not provide spoofing functionality.
+Run the preflight check script from your host machine with the device connected via USB:
+
+```bash
+./scripts/check-device.sh
+```
+
+Pre-flash checklist:
+- **Clean flash without GApps**: If the ROM includes pre-installed GApps (stock OEM or GApps-bundled custom ROMs), clean-flash a vanilla ROM without GApps.
+- **Signature spoofing**: The ROM must support signature spoofing (verify with microG Self-Check after install; this module does not provide spoofing).
+- **No `/data` updates**: Any stock Google Play Services or Play Store updates in `/data` must be uninstalled prior to flashing to prevent downgrade conflicts.
+- **Unsupported layouts**: If the preflight check reports an incompatible API or unrecognized partition layout, open an issue using the Device Support template and paste the generated report.
 
 ## Install
 
