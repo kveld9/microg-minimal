@@ -107,27 +107,6 @@ jobs:
           TAG="${{ steps.guard.outputs.tag }}"
           . ./versions.env
 
-          CHANGELOG_EXCERPT="$(python3 -c "
-          import sys, re
-          tag = '${TAG}'
-          try:
-              with open('CHANGELOG.md', 'r', encoding='utf-8') as f:
-                  content = f.read()
-              header = f'## [{tag}]'
-              if header in content:
-                  part = content.split(header, 1)[1]
-                  if '\n## [' in part:
-                      body = part.split('\n## [', 1)[0].strip()
-                  else:
-                      body = part.strip()
-                  body = re.sub(r'^[ \t]*-[ \t]*\d{4}-\d{2}-\d{2}[^\n]*\n*', '', body).strip()
-                  print(body)
-              else:
-                  print(f'- Automated release for microG Minimal {tag}')
-          except Exception as e:
-              print(f'- Automated release for microG Minimal {tag}')
-          ")"
-
           PREV_TAG="$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || echo "")"
           if [[ -n "${PREV_TAG}" ]]; then
             COMMITS="$(git log --pretty=format:'- %h %s' "${PREV_TAG}..${TAG}")"
@@ -139,10 +118,6 @@ jobs:
           fi
 
           {
-            echo "changelog<<CHANGELOG_EOF"
-            echo "${CHANGELOG_EXCERPT}"
-            echo "CHANGELOG_EOF"
-            echo "upstream_tag=${GMS_RELEASE_TAG}"
             echo "module_version=${MODULE_VERSION}"
             echo "prev_tag=${PREV_TAG}"
             echo "commits<<COMMITS_EOF"
@@ -158,17 +133,6 @@ jobs:
           name: ${{ steps.guard.outputs.tag }}
           body: |
             ## Changes
-
-            ${{ steps.meta.outputs.changelog }}
-
-            ## Release Details
-
-            - **Module Version:** `${{ steps.meta.outputs.module_version }}`
-            - **Upstream microG Tag:** [${{ steps.meta.outputs.upstream_tag }}](https://github.com/microg/GmsCore/releases/tag/${{ steps.meta.outputs.upstream_tag }})
-
-            ## Changelog
-
-            ${{ steps.meta.outputs.prev_tag != '' && format('**Full changelog**: [{0}...{1}](https://github.com/{2}/compare/{0}...{1})', steps.meta.outputs.prev_tag, steps.guard.outputs.tag, github.repository) || '' }}
 
             ${{ steps.meta.outputs.commits }}
 
