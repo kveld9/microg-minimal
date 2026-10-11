@@ -2,6 +2,27 @@
 
 All notable changes to the microG Minimal Magisk module will be documented in this file.
 
+## [v0.3.20] - 2026-10-11
+
+### Fixed
+- Installer safety: dropped overlay auto-disable to prevent breaking zygote idmap state on flash.
+- Cache invalidation: wipe package and resource caches (`/data/system/package_cache`, `/data/resource-cache`) during install.
+- Module uninstallation: restore and re-enable overlays modified by earlier module releases.
+
+## [v0.3.19] - 2026-10-11
+
+### Added
+- Auto-release publishing workflow triggered on module-code changes with semantic versioning guards.
+- Tracked release guard helper script (`scripts/release-version.py`).
+
+### Fixed
+- Metadata author identifier displayed consistently as `kveld9`.
+- Installer baseline notification updated to reflect Android 8.1 multi-layout coverage.
+
+### Documentation
+- Actionable troubleshooting guidance for signature spoofing and OverlayFS requirements.
+- Step-by-step post-installation microG setup checklist.
+
 ## [v0.3.18] - 2026-10-11
 
 ### Added
@@ -11,6 +32,7 @@ All notable changes to the microG Minimal Magisk module will be documented in th
 - Custom ROM GApps suite coverage including MindTheGapps, NikGapps, BitGapps, and OpenGapps.
 - Standalone ADB host and on-device `scripts/check-device.sh` diagnostic check tool with automated cleanup guidance.
 - Installer auto-disable for conflicting GApps overlays and automated cleanup of existing `/data/app` updates at flash time.
+- Slim module packaging staging payloads once and fanning out to target directories at install time (reduced archive size from ~600MB to ~115MB).
 
 ### Fixed
 - Overlay candidate validation to ensure only system packages are targeted before disabling.
