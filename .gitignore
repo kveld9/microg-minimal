@@ -13,3 +13,17 @@ vendor/*
 # OS / Editor artifacts
 .DS_Store
 Thumbs.db
+
+# Local secrets and signing material (never commit)
+local.properties
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.pfx
+*.keystore
+*.jks
+credentials.json
+secrets.json
+auth.json

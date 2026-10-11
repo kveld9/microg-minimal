@@ -1,0 +1,7 @@
+# Enforce LF for shell and installer scripts
+*.sh text eol=lf
+META-INF/com/google/android/update-binary text eol=lf
+
+# Tooling and docs classification
+.github/** linguist-vendored=true
+*.md linguist-documentation=true
