@@ -140,6 +140,8 @@ main() {
   # Validate packaged microG APKs for all layouts
   verify_all_payloads
 
+  ui_print "- Configured microG permission and sysconfig overlays."
+
   apply_permissions
 
   ui_print "- microG Minimal installation completed."

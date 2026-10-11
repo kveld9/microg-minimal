@@ -131,6 +131,23 @@ copy_dir_marker() {
   cp "${REPO_ROOT}/${target_rel_dir}/.replace" "${stage_dir}/${target_rel_dir}/"
 }
 
+copy_file_to_stage() {
+  local stage_dir="$1"
+  local rel_path="$2"
+
+  mkdir -p "${stage_dir}/$(dirname "${rel_path}")"
+  cp "${REPO_ROOT}/${rel_path}" "${stage_dir}/${rel_path}"
+}
+
+copy_permission_files() {
+  local stage_dir="$1"
+
+  copy_file_to_stage "${stage_dir}" "system/etc/permissions/privapp-permissions-microg.xml"
+  copy_file_to_stage "${stage_dir}" "system/product/etc/permissions/privapp-permissions-microg.xml"
+  copy_file_to_stage "${stage_dir}" "system/etc/default-permissions/default-permissions-microg.xml"
+  copy_file_to_stage "${stage_dir}" "system/etc/sysconfig/microg.xml"
+}
+
 copy_skeleton_files() {
   local stage_dir="$1"
 
@@ -147,6 +164,8 @@ copy_skeleton_files() {
   copy_dir_marker "${stage_dir}" "${VENDING_TARGET_DIR}"
   copy_dir_marker "${stage_dir}" "${GMS_STD_TARGET_DIR}"
   copy_dir_marker "${stage_dir}" "${VENDING_STD_TARGET_DIR}"
+
+  copy_permission_files "${stage_dir}"
 }
 
 create_zip() {

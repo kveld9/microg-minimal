@@ -10,6 +10,7 @@ On affected devices (both Android Go and standard Android layouts), the stock Pl
 
 - Any of these root managers: Magisk, KernelSU family (KernelSU, KernelSU Next, SukiSU), APatch.
 - Android 9 or newer, supporting both Android Go layouts (`system/priv-app/GmsCoreGo` and `Phonesky`) and standard Android layouts (`product/priv-app/GmsCore` and `Phonesky`).
+- Provides the required system permission grants for microG.
 - ARM devices, 32-bit and 64-bit.
 - On the KernelSU family, a system-mount helper (a metamodule such as `meta-overlayfs`) is required for the module files to take effect.
 - No Zygisk required.
