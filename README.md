@@ -48,15 +48,20 @@ Get the latest `microg-minimal-*.zip` from the GitHub Releases page of this repo
 3. Go to Modules -> Install from storage and select the zip.
 4. Reboot when the install finishes.
 
-### 3. Set up microG
+### 3. Verify installation
 
-- **Self-Check**: Open microG Settings and run Self-Check; every item must pass. If signature spoofing fails, stop: this is a ROM or patch issue that the module cannot fix (see the [Before Installing](#before-installing) signature spoofing requirement).
-- **Permissions**: Grant all requested permissions when prompted.
-- **Google Account & Cloud Messaging**: Add your Google account if needed, then enable device registration and Cloud Messaging.
-- **Location & Battery**: Enable Wi-Fi and cell location backends as offered. Set battery usage to Unrestricted for microG so push notifications and location updates survive doze.
-- **Final steps**: Reboot once more if Self-Check requests it. Re-run the preflight check only if something looks wrong.
+Open microG Settings and reboot once if prompted. Complete setup using the checklist below.
 
-### 4. Uninstall
+### 4. Recommended microG configuration
+
+- [ ] **Self-Check**: verify signature spoofing is granted; if not, stop and fix your ROM or spoofing patch ([Before Installing](#before-installing)).
+- [ ] **Permissions**: grant location, phone, SMS, contacts, and storage when microG prompts for runtime permissions.
+- [ ] **Battery optimization**: battery exemption is applied automatically; do not restrict microG background battery usage.
+- [ ] **Google account**: add your account only after Self-Check passes, then enable device registration and Cloud Messaging.
+- [ ] **Location**: install a UnifiedNlp backend (such as Mozilla or local GSM/Wi-Fi backends) and enable network-based location.
+- [ ] **Exposure Notifications**: keep disabled unless specifically needed.
+
+### 5. Uninstall
 
 1. In the manager app, remove `microG Minimal` from Modules.
 2. Reboot. The stock system apps come back automatically.
