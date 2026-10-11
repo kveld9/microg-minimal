@@ -16,6 +16,23 @@ def parse_semver(tag_str):
     return tuple(nums)
 
 
+def is_version_only_diff(latest_t, changed_files):
+    if not changed_files or not set(changed_files).issubset({"versions.env", "module.prop"}):
+        return False
+    content_diff_cmd = ["git", "diff", f"{latest_t}..HEAD", "--"] + changed_files
+    content_diff = subprocess.check_output(content_diff_cmd, text=True)
+    changed_lines = [
+        line[1:].strip()
+        for line in content_diff.splitlines()
+        if (line.startswith("+") and not line.startswith("+++"))
+        or (line.startswith("-") and not line.startswith("---"))
+    ]
+    if not changed_lines:
+        return False
+    version_pattern = re.compile(r"^(MODULE_VERSION=|MODULE_VERSION_CODE=|version=|versionCode=)")
+    return all(version_pattern.match(line) for line in changed_lines)
+
+
 def main():
     # 1. Read V from versions.env
     v_val = None
@@ -63,7 +80,9 @@ def main():
         ]
         diff_cmd = ["git", "diff", "--name-only", f"{latest_t}..HEAD", "--"] + trigger_paths
         diff_out = subprocess.check_output(diff_cmd, text=True).strip()
-        if not diff_out:
+        changed_files = [line.strip() for line in diff_out.splitlines() if line.strip()]
+
+        if not diff_out or is_version_only_diff(latest_t, changed_files):
             target_tag = latest_t
             skip_release = True
             print(f"No changes in module-code trigger set since {latest_t}. Skipping publish.")

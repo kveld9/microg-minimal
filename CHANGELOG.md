@@ -2,6 +2,11 @@
 
 All notable changes to the microG Minimal Magisk module will be documented in this file.
 
+## [v0.3.21] - 2026-10-11
+
+### Changed
+- Automated metadata alignment across repository manifests with no functional module changes.
+
 ## [v0.3.20] - 2026-10-11
 
 ### Fixed
