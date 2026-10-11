@@ -2,6 +2,8 @@ name: Release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
 
@@ -9,7 +11,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release
   cancel-in-progress: false
 
 jobs:
@@ -33,13 +35,28 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          TAG="${GITHUB_REF_NAME}"
-          if gh release view "${TAG}" >/dev/null 2>&1; then
-            echo "Release for tag ${TAG} already exists. Skipping publish."
-            echo "skip_release=true" >> "$GITHUB_OUTPUT"
+          if [[ "${GITHUB_REF_TYPE:-}" == "tag" ]]; then
+            TAG="${GITHUB_REF_NAME}"
+            if gh release view "${TAG}" >/dev/null 2>&1; then
+              echo "Release for tag ${TAG} already exists. Skipping publish."
+              echo "skip_release=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "skip_release=false" >> "$GITHUB_OUTPUT"
+            fi
           else
-            echo "skip_release=false" >> "$GITHUB_OUTPUT"
+            . ./versions.env
+            TAG="v${MODULE_VERSION#v}"
+            if git rev-parse "${TAG}" >/dev/null 2>&1 || gh release view "${TAG}" >/dev/null 2>&1; then
+              echo "Release or tag for ${TAG} already exists. Skipping publish."
+              echo "skip_release=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "Creating and pushing tag ${TAG}..."
+              git tag "${TAG}"
+              git push origin "${TAG}"
+              echo "skip_release=false" >> "$GITHUB_OUTPUT"
+            fi
           fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
 
       - name: Fetch microG APK Binaries
         if: steps.guard.outputs.skip_release != 'true'
@@ -55,7 +72,7 @@ jobs:
         if: steps.guard.outputs.skip_release != 'true'
         run: |
           set -euo pipefail
-          TAG="${GITHUB_REF_NAME}"
+          TAG="${{ steps.guard.outputs.tag }}"
           STAGE="artifacts"
           mkdir -p "${STAGE}"
 
@@ -87,11 +104,11 @@ jobs:
         if: steps.guard.outputs.skip_release != 'true'
         run: |
           set -euo pipefail
-          TAG="${GITHUB_REF_NAME}"
+          TAG="${{ steps.guard.outputs.tag }}"
           . ./versions.env
 
           CHANGELOG_EXCERPT="$(python3 -c "
-          import sys
+          import sys, re
           tag = '${TAG}'
           try:
               with open('CHANGELOG.md', 'r', encoding='utf-8') as f:
@@ -103,6 +120,7 @@ jobs:
                       body = part.split('\n## [', 1)[0].strip()
                   else:
                       body = part.strip()
+                  body = re.sub(r'^[ \t]*-[ \t]*\d{4}-\d{2}-\d{2}[^\n]*\n*', '', body).strip()
                   print(body)
               else:
                   print(f'- Automated release for microG Minimal {tag}')
@@ -136,8 +154,8 @@ jobs:
         if: steps.guard.outputs.skip_release != 'true'
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
+          tag_name: ${{ steps.guard.outputs.tag }}
+          name: ${{ steps.guard.outputs.tag }}
           body: |
             ## Changes
 
@@ -148,9 +166,9 @@ jobs:
             - **Module Version:** `${{ steps.meta.outputs.module_version }}`
             - **Upstream microG Tag:** [${{ steps.meta.outputs.upstream_tag }}](https://github.com/microg/GmsCore/releases/tag/${{ steps.meta.outputs.upstream_tag }})
 
-            ## Commits
+            ## Changelog
 
-            ${{ steps.meta.outputs.prev_tag != '' && format('**Full changelog**: [{0}...{1}](https://github.com/{2}/compare/{0}...{1})', steps.meta.outputs.prev_tag, github.ref_name, github.repository) || '' }}
+            ${{ steps.meta.outputs.prev_tag != '' && format('**Full changelog**: [{0}...{1}](https://github.com/{2}/compare/{0}...{1})', steps.meta.outputs.prev_tag, steps.guard.outputs.tag, github.repository) || '' }}
 
             ${{ steps.meta.outputs.commits }}
 
@@ -159,7 +177,7 @@ jobs:
             | File | Description |
             |------|-------------|
             | `microg-minimal-${{ steps.meta.outputs.module_version }}.zip` | Flashable Magisk Module |
-            | `checksums-${{ github.ref_name }}.txt` | Multi-hash Integrity Verification (SHA-256, SHA-512, MD5) |
+            | `checksums-${{ steps.guard.outputs.tag }}.txt` | Multi-hash Integrity Verification (SHA-256, SHA-512, MD5) |
             | `SHA256SUMS.txt` | Standard SHA-256 Checksums (`sha256sum -c`) |
           files: artifacts/*
           fail_on_unmatched_files: true
