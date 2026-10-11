@@ -32,7 +32,7 @@ jobs:
       - name: Validate Shell Script Syntax
         run: |
           set -euo pipefail
-          bash -n scripts/*.sh customize.sh uninstall.sh META-INF/com/google/android/update-binary
+          bash -n scripts/*.sh customize.sh.template uninstall.sh META-INF/com/google/android/update-binary
 
       - name: Configure Git Identity
         run: |

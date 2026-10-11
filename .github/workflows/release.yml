@@ -25,7 +25,7 @@ jobs:
 
       - name: Validate Shell Script Syntax
         run: |
-          bash -n scripts/*.sh customize.sh uninstall.sh META-INF/com/google/android/update-binary
+          bash -n scripts/*.sh customize.sh.template uninstall.sh META-INF/com/google/android/update-binary
 
       - name: Check Existing Release Guard
         id: guard
