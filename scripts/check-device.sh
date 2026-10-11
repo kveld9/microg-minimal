@@ -278,6 +278,47 @@ check_mindthegapps_packages() {
   done <<< "${mtg_list}"
 }
 
+check_nikgapps_packages() {
+  local packages="$1"
+  local nik_list
+  nik_list="$(echo "${packages}" | grep "package:com.nikgapps.overlay\." | sed 's/package://' || true)"
+
+  [[ -z "${nik_list}" ]] && return 0
+
+  while IFS= read -r nik_pkg; do
+    [[ -z "${nik_pkg}" ]] && continue
+    echo "[WARN] GApps overlay package detected: ${nik_pkg} (NikGapps)"
+    SYSTEM_BASE_PKGS+=("${nik_pkg}")
+  done <<< "${nik_list}"
+}
+
+check_bitgapps_packages() {
+  local packages="$1"
+  local bit_list
+  bit_list="$(echo "${packages}" | grep "package:com.bitgapps\." | sed 's/package://' || true)"
+
+  [[ -z "${bit_list}" ]] && return 0
+
+  while IFS= read -r bit_pkg; do
+    [[ -z "${bit_pkg}" ]] && continue
+    echo "[WARN] GApps overlay package detected: ${bit_pkg} (BitGapps)"
+    SYSTEM_BASE_PKGS+=("${bit_pkg}")
+  done <<< "${bit_list}"
+}
+
+check_opengapps_marker() {
+  local prop_exists
+  prop_exists="$(adb_cmd shell "[ -f /system/etc/g.prop ] && echo 1 || echo 0" 2>/dev/null | tr -d '\r' || echo "0")"
+  [[ "${prop_exists}" != "1" ]] && return 0
+
+  local addon_type
+  addon_type="$(adb_cmd shell "grep '^ro.addon.type=' /system/etc/g.prop 2>/dev/null | cut -d= -f2" | tr -d '\r' || true)"
+  local type_desc="${addon_type:-gapps}"
+
+  echo "[WARN] GApps marker detected: /system/etc/g.prop (OpenGapps, type: ${type_desc})"
+  SYSTEM_BASE_PKGS+=("OpenGapps (/system/etc/g.prop)")
+}
+
 check_single_stock_dir() {
   local dir_path="$1"
   local exists_val
@@ -435,6 +476,9 @@ run_all_inspections() {
   detect_root_traces "${packages_cache}"
   check_stock_packages
   check_mindthegapps_packages "${packages_cache}"
+  check_nikgapps_packages "${packages_cache}"
+  check_bitgapps_packages "${packages_cache}"
+  check_opengapps_marker
 
   if ! check_stock_directories; then
     if [[ "${BLOCKING_VERDICT}" -eq 0 ]]; then

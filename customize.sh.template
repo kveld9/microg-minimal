@@ -12,9 +12,13 @@ REPLACE="
 /__GMS_TARGET_DIR__
 /__VENDING_TARGET_DIR__
 /__GMS_LEGACY_TARGET_DIR__
+/__GMS_LEGACY_PI_TARGET_DIR__
+/__GMS_LEGACY_PIX_TARGET_DIR__
+/__GMS_PROD_LEGACY_TARGET_DIR__
 /__GMS_STD_TARGET_DIR__
 /__VENDING_STD_TARGET_DIR__
 /product/priv-app/GmsCore
+/product/priv-app/PrebuiltGmsCore
 /product/priv-app/Phonesky
 "
 
@@ -68,6 +72,10 @@ detect_stock_layout() {
     /__GMS_TARGET_DIR__ \
     /__VENDING_TARGET_DIR__ \
     /__GMS_LEGACY_TARGET_DIR__ \
+    /__GMS_LEGACY_PI_TARGET_DIR__ \
+    /__GMS_LEGACY_PIX_TARGET_DIR__ \
+    /__GMS_PROD_LEGACY_TARGET_DIR__ \
+    /product/priv-app/PrebuiltGmsCore \
     /product/priv-app/GmsCore \
     /__GMS_STD_TARGET_DIR__ \
     /product/priv-app/Phonesky \
@@ -100,6 +108,9 @@ ensure_shipped_markers() {
   ensure_replace_marker "$MODPATH/__GMS_TARGET_DIR__"
   ensure_replace_marker "$MODPATH/__VENDING_TARGET_DIR__"
   ensure_replace_marker "$MODPATH/__GMS_LEGACY_TARGET_DIR__"
+  ensure_replace_marker "$MODPATH/__GMS_LEGACY_PI_TARGET_DIR__"
+  ensure_replace_marker "$MODPATH/__GMS_LEGACY_PIX_TARGET_DIR__"
+  ensure_replace_marker "$MODPATH/__GMS_PROD_LEGACY_TARGET_DIR__"
   ensure_replace_marker "$MODPATH/__GMS_STD_TARGET_DIR__"
   ensure_replace_marker "$MODPATH/__VENDING_STD_TARGET_DIR__"
 }
@@ -123,6 +134,9 @@ verify_all_payloads() {
 
   # Legacy layout payloads (Phonesky shared with Go layout)
   verify_payload_apk "$MODPATH/__GMS_LEGACY_TARGET_DIR__/__GMS_LEGACY_TARGET_NAME__" "GmsCore (Legacy)"
+  verify_payload_apk "$MODPATH/__GMS_LEGACY_PI_TARGET_DIR__/__GMS_LEGACY_PI_TARGET_NAME__" "GmsCore (Legacy Pi)"
+  verify_payload_apk "$MODPATH/__GMS_LEGACY_PIX_TARGET_DIR__/__GMS_LEGACY_PIX_TARGET_NAME__" "GmsCore (Legacy Pix)"
+  verify_payload_apk "$MODPATH/__GMS_PROD_LEGACY_TARGET_DIR__/__GMS_PROD_LEGACY_TARGET_NAME__" "GmsCore (Product Legacy)"
 
   # Standard layout payloads
   verify_payload_apk "$MODPATH/__GMS_STD_TARGET_DIR__/__GMS_STD_TARGET_NAME__" "GmsCore (Standard)"
@@ -187,16 +201,17 @@ remove_data_updates() {
   done
 }
 
-# Disables a MindTheGapps overlay package for user 0 using pm uninstall --user 0.
+# Disables a GApps overlay package for user 0 using pm uninstall --user 0.
 # System partition files remain untouched and reversible via pm install-existing.
 disable_gapps_overlay() {
   pkg="$1"
+  family="$2"
   if [ -z "$pkg" ]; then
     return 0
   fi
 
   ui_print "********************************************************"
-  ui_print "! WARNING: Conflicting MindTheGapps overlay detected: $pkg"
+  ui_print "! WARNING: Conflicting $family overlay detected: $pkg"
   ui_print "! Disabling overlay for user 0 via 'pm uninstall --user 0 $pkg'..."
   ui_print "********************************************************"
 
@@ -219,12 +234,18 @@ disable_gapps_overlays() {
     return 0
   fi
 
-  ui_print "- Checking for conflicting MindTheGapps overlay packages..."
-  # MindTheGapps overlay package prefix is an intrinsic upstream identifier.
+  ui_print "- Checking for conflicting GApps overlay packages..."
+  # Branded overlay package prefixes are intrinsic upstream identifiers.
   pm list packages 2>/dev/null | tr -d '\r' | while IFS= read -r line || [ -n "$line" ]; do
     case "$line" in
       package:com.mtg.*)
-        disable_gapps_overlay "${line#package:}"
+        disable_gapps_overlay "${line#package:}" "MindTheGapps"
+        ;;
+      package:com.nikgapps.overlay.*)
+        disable_gapps_overlay "${line#package:}" "NikGapps"
+        ;;
+      package:com.bitgapps.*)
+        disable_gapps_overlay "${line#package:}" "BitGapps"
         ;;
     esac
   done
@@ -250,7 +271,7 @@ main() {
   # Remove conflicting /data updates for stock packages if present
   remove_data_updates
 
-  # Disable conflicting MindTheGapps overlays for user 0 if present
+  # Disable conflicting GApps overlays for user 0 if present (MindTheGapps, NikGapps, BitGapps)
   disable_gapps_overlays
 
   ui_print "- Configured microG permission and sysconfig overlays."

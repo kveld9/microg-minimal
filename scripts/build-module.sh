@@ -74,6 +74,9 @@ verify_skeleton_markers() {
   verify_replace_marker "${REPO_ROOT}/${GMS_TARGET_DIR}/.replace"
   verify_replace_marker "${REPO_ROOT}/${VENDING_TARGET_DIR}/.replace"
   verify_replace_marker "${REPO_ROOT}/${GMS_LEGACY_TARGET_DIR}/.replace"
+  verify_replace_marker "${REPO_ROOT}/${GMS_LEGACY_PI_TARGET_DIR}/.replace"
+  verify_replace_marker "${REPO_ROOT}/${GMS_LEGACY_PIX_TARGET_DIR}/.replace"
+  verify_replace_marker "${REPO_ROOT}/${GMS_PROD_LEGACY_TARGET_DIR}/.replace"
   verify_replace_marker "${REPO_ROOT}/${GMS_STD_TARGET_DIR}/.replace"
   verify_replace_marker "${REPO_ROOT}/${VENDING_STD_TARGET_DIR}/.replace"
 }
@@ -121,6 +124,9 @@ stage_all_payloads() {
   stage_payload "${gms_src}" "${stage_dir}/${GMS_TARGET_DIR}/${GMS_TARGET_NAME}" "GmsCoreGo"
   stage_payload "${vending_src}" "${stage_dir}/${VENDING_TARGET_DIR}/${VENDING_TARGET_NAME}" "Phonesky (Go)"
   stage_payload "${gms_src}" "${stage_dir}/${GMS_LEGACY_TARGET_DIR}/${GMS_LEGACY_TARGET_NAME}" "GmsCore (Legacy)"
+  stage_payload "${gms_src}" "${stage_dir}/${GMS_LEGACY_PI_TARGET_DIR}/${GMS_LEGACY_PI_TARGET_NAME}" "GmsCore (Legacy Pi)"
+  stage_payload "${gms_src}" "${stage_dir}/${GMS_LEGACY_PIX_TARGET_DIR}/${GMS_LEGACY_PIX_TARGET_NAME}" "GmsCore (Legacy Pix)"
+  stage_payload "${gms_src}" "${stage_dir}/${GMS_PROD_LEGACY_TARGET_DIR}/${GMS_PROD_LEGACY_TARGET_NAME}" "GmsCore (Product Legacy)"
   stage_payload "${gms_src}" "${stage_dir}/${GMS_STD_TARGET_DIR}/${GMS_STD_TARGET_NAME}" "GmsCore (Standard)"
   stage_payload "${vending_src}" "${stage_dir}/${VENDING_STD_TARGET_DIR}/${VENDING_STD_TARGET_NAME}" "Phonesky (Standard)"
 }
@@ -166,6 +172,12 @@ render_customize_template() {
     -e "s|__VENDING_TARGET_NAME__|${VENDING_TARGET_NAME}|g" \
     -e "s|__GMS_LEGACY_TARGET_DIR__|${GMS_LEGACY_TARGET_DIR}|g" \
     -e "s|__GMS_LEGACY_TARGET_NAME__|${GMS_LEGACY_TARGET_NAME}|g" \
+    -e "s|__GMS_LEGACY_PI_TARGET_DIR__|${GMS_LEGACY_PI_TARGET_DIR}|g" \
+    -e "s|__GMS_LEGACY_PI_TARGET_NAME__|${GMS_LEGACY_PI_TARGET_NAME}|g" \
+    -e "s|__GMS_LEGACY_PIX_TARGET_DIR__|${GMS_LEGACY_PIX_TARGET_DIR}|g" \
+    -e "s|__GMS_LEGACY_PIX_TARGET_NAME__|${GMS_LEGACY_PIX_TARGET_NAME}|g" \
+    -e "s|__GMS_PROD_LEGACY_TARGET_DIR__|${GMS_PROD_LEGACY_TARGET_DIR}|g" \
+    -e "s|__GMS_PROD_LEGACY_TARGET_NAME__|${GMS_PROD_LEGACY_TARGET_NAME}|g" \
     -e "s|__GMS_STD_TARGET_DIR__|${GMS_STD_TARGET_DIR}|g" \
     -e "s|__GMS_STD_TARGET_NAME__|${GMS_STD_TARGET_NAME}|g" \
     -e "s|__VENDING_STD_TARGET_DIR__|${VENDING_STD_TARGET_DIR}|g" \
@@ -215,6 +227,9 @@ copy_skeleton_files() {
   copy_dir_marker "${stage_dir}" "${GMS_TARGET_DIR}"
   copy_dir_marker "${stage_dir}" "${VENDING_TARGET_DIR}"
   copy_dir_marker "${stage_dir}" "${GMS_LEGACY_TARGET_DIR}"
+  copy_dir_marker "${stage_dir}" "${GMS_LEGACY_PI_TARGET_DIR}"
+  copy_dir_marker "${stage_dir}" "${GMS_LEGACY_PIX_TARGET_DIR}"
+  copy_dir_marker "${stage_dir}" "${GMS_PROD_LEGACY_TARGET_DIR}"
   copy_dir_marker "${stage_dir}" "${GMS_STD_TARGET_DIR}"
   copy_dir_marker "${stage_dir}" "${VENDING_STD_TARGET_DIR}"
 

@@ -14,9 +14,10 @@
 # upon reboot, and any subsequent updates can re-download normally via the
 # Play Store or microG update path.
 #
-# MindTheGapps overlay packages disabled during module installation are also
-# NOT automatically re-enabled on module removal (per-user state persists).
-# Users can restore them via 'pm install-existing <pkg>' or a clean ROM reflash.
+# MindTheGapps, NikGapps, and BitGapps overlay packages disabled during
+# module installation are also NOT automatically re-enabled on module removal
+# (per-user state persists). Users can restore them via 'pm install-existing <pkg>'
+# or a clean ROM reflash.
 
 # Optional cleanup: invalidate package cache to force fresh scan on next boot
 if [ -d "/data/system/package_cache" ]; then
