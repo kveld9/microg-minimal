@@ -1,7 +1,7 @@
 id=microg-minimal
 name=microG Minimal
-version=v0.3.22
-versionCode=30220
+version=v0.3.23
+versionCode=30230
 author=kveld9
 description=Minimal systemless microG replacement suppressing stock GmsCore and Phonesky on Go and standard Android layouts.
 updateJson=https://raw.githubusercontent.com/kveld9/microg-minimal/main/update.json
