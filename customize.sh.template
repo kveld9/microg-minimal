@@ -174,20 +174,80 @@ verify_all_payloads() {
 }
 
 # Detects whether an active /data update exists for a package.
+# A stale /data entry already disabled for user 0 (installed=false)
+# is residue, not an active conflict, and must not trigger removal.
 is_data_update() {
   pkg="$1"
   pkg_path="$(pm path "$pkg" 2>/dev/null)"
 
-  if [ -z "$pkg_path" ]; then
-    if command -v dumpsys >/dev/null 2>&1; then
-      pkg_path="$(dumpsys package "$pkg" 2>/dev/null | grep "codePath=" || true)"
-    fi
+  if [ -z "$pkg_path" ] && command -v dumpsys >/dev/null 2>&1; then
+    pkg_path="$(dumpsys package "$pkg" 2>/dev/null | grep "codePath=" || true)"
   fi
 
   case "$pkg_path" in
-    */data/*) return 0 ;;
+    */data/*) ;;
     *) return 1 ;;
   esac
+
+  if ! command -v dumpsys >/dev/null 2>&1; then
+    return 0
+  fi
+
+  if dumpsys package "$pkg" 2>/dev/null | grep -q "User 0:.*installed=false"; then
+    return 1
+  fi
+
+  return 0
+}
+
+# Detects a stale /data entry disabled for user 0. Harmless residue
+# that wastes space; PackageManager owns it so removal is not attempted.
+is_inactive_data_residue() {
+  pkg="$1"
+
+  if ! command -v dumpsys >/dev/null 2>&1; then
+    return 1
+  fi
+
+  pkg_info="$(dumpsys package "$pkg" 2>/dev/null || true)"
+
+  case "$pkg_info" in
+    */data/*) ;;
+    *) return 1 ;;
+  esac
+
+  if echo "$pkg_info" | grep -q "installed=false"; then
+    return 0
+  fi
+
+  return 1
+}
+
+# Reports the outcome of 'pm uninstall --user 0' for a package.
+# Never clears package data, never touches system-base packages or GSF.
+report_uninstall_result() {
+  pkg="$1"
+  pm_out="$2"
+
+  case "$pm_out" in
+    *Success*)
+      ui_print "- Successfully removed /data update for $pkg (user 0)."
+      ui_print "! Notice: Only user 0 was uninstalled. Secondary users require manual cleanup."
+      return 0
+      ;;
+    *not\ installed\ for*)
+      ui_print "- Notice: Stale /data entry for $pkg is already uninstalled for user 0; no action needed. A reboot prunes leftover files."
+      return 0
+      ;;
+    *DELETE_FAILED_DEVICE_POLICY_MANAGER*)
+      ui_print "! Warning: A device admin holds $pkg; removal skipped (${pm_out})."
+      ui_print "! Remove the device admin (e.g. Find My Device) and reinstall the module."
+      return 0
+      ;;
+  esac
+
+  ui_print "! Warning: Failed to remove /data update for $pkg (${pm_out:-unknown})."
+  ui_print "! Manual cleanup recommended: pm uninstall --user 0 $pkg"
 }
 
 # Removes /data update for a package using pm uninstall --user 0.
@@ -196,6 +256,9 @@ remove_package_data_update() {
   pkg="$1"
 
   if ! is_data_update "$pkg"; then
+    if is_inactive_data_residue "$pkg"; then
+      ui_print "- Notice: Stale disabled /data entry for $pkg (already uninstalled for user 0); no action needed."
+    fi
     return 0
   fi
 
@@ -205,17 +268,7 @@ remove_package_data_update() {
   ui_print "********************************************************"
 
   pm_out="$(pm uninstall --user 0 "$pkg" 2>&1 || true)"
-  case "$pm_out" in
-    *Success*)
-      ui_print "- Successfully removed /data update for $pkg (user 0)."
-      ;;
-    *)
-      ui_print "! Warning: Failed to remove /data update for $pkg (${pm_out:-unknown})."
-      ui_print "! Manual cleanup recommended: pm uninstall --user 0 $pkg"
-      ;;
-  esac
-
-  ui_print "! Notice: Only user 0 was uninstalled. Secondary users require manual cleanup."
+  report_uninstall_result "$pkg" "$pm_out"
 }
 
 remove_data_updates() {
