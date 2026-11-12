@@ -2,6 +2,11 @@
 
 All notable changes to the microG Minimal Magisk module will be documented in this file.
 
+## [v0.3.25] - 2026-11-12
+
+### Changed
+- Bump upstream microG to v0.3.18.252432 (GmsCore com.google.android.gms-252432036.apk, Phonesky com.android.vending-84022636.apk).
+
 ## [v0.3.21] - 2026-10-11
 
 ### Changed
