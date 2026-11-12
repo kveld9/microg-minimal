@@ -311,7 +311,7 @@ main() {
   fi
 
   local version_info semver module_version version_code
-  version_info="$(derive_version_info "${target_tag}")"
+  version_info="$(derive_version_info "${target_tag}" "${MODULE_VERSION}")"
   semver="$(python3 -c 'import sys, json; print(json.loads(sys.argv[1]).get("semver"))' "${version_info}")"
   module_version="$(python3 -c 'import sys, json; print(json.loads(sys.argv[1]).get("module_version"))' "${version_info}")"
   version_code="$(python3 -c 'import sys, json; print(json.loads(sys.argv[1]).get("version_code"))' "${version_info}")"

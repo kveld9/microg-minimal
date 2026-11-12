@@ -145,10 +145,13 @@ resolve_upstream_release() {
 
 derive_version_info() {
   local tag="$1"
+  local current_module_version="$2"
   python3 -c '
 import sys, json
 
 tag = sys.argv[1]
+current_module_version = sys.argv[2]
+
 raw = tag.lstrip("v")
 parts = raw.split(".")
 
@@ -158,23 +161,29 @@ if len(parts) >= 4 and len(parts[-1]) >= 6 and parts[-1].isdigit():
 else:
     semver_parts = parts
 
+# Upstream semver describes the microG payload only (GMS_VERSION / VENDING_VERSION).
 semver = ".".join(semver_parts)
-major = int(semver_parts[0]) if len(semver_parts) > 0 and semver_parts[0].isdigit() else 0
-minor = int(semver_parts[1]) if len(semver_parts) > 1 and semver_parts[1].isdigit() else 0
-patch = int(semver_parts[2]) if len(semver_parts) > 2 and semver_parts[2].isdigit() else 0
-subpatch = int(semver_parts[3]) if len(semver_parts) > 3 and semver_parts[3].isdigit() else 0
+
+# The module version is independent of the upstream tag and must strictly increase,
+# otherwise installed modules never see a higher versionCode. Bump the patch of the
+# version currently recorded in versions.env.
+current_parts = current_module_version.lstrip("v").split(".")
+major = int(current_parts[0]) if len(current_parts) > 0 and current_parts[0].isdigit() else 0
+minor = int(current_parts[1]) if len(current_parts) > 1 and current_parts[1].isdigit() else 0
+patch = int(current_parts[2]) if len(current_parts) > 2 and current_parts[2].isdigit() else 0
+next_patch = patch + 1
 
 # VersionCode formula: (MAJOR * 100000) + (MINOR * 10000) + (PATCH * 10) + SUBPATCH
 # Documented scheme: v0.3.17 -> 30170
-version_code = (major * 100000) + (minor * 10000) + (patch * 10) + subpatch
+version_code = (major * 100000) + (minor * 10000) + (next_patch * 10)
 
 result = {
     "semver": semver,
-    "module_version": f"v{semver}",
+    "module_version": f"v{major}.{minor}.{next_patch}",
     "version_code": version_code
 }
 print(json.dumps(result))
-' "${tag}"
+' "${tag}" "${current_module_version}"
 }
 
 calculate_sha256() {
