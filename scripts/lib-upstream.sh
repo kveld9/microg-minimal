@@ -184,6 +184,10 @@ calculate_sha256() {
 
 get_file_size() {
   local target_file="$1"
+  if [[ ! -f "${target_file}" ]]; then
+    echo "Error: Cannot read file size, missing file: '${target_file}'" >&2
+    return 1
+  fi
   wc -c < "${target_file}" | tr -d ' '
 }
 
@@ -192,7 +196,7 @@ download_asset() {
   local dest_path="$2"
   local part_path="${dest_path}.part"
 
-  echo "Downloading: ${url}"
+  echo "Downloading: ${url}" >&2
   if command -v curl >/dev/null 2>&1; then
     curl -fL --progress-bar --output "${part_path}" "${url}"
   elif command -v wget >/dev/null 2>&1; then
@@ -204,6 +208,8 @@ download_asset() {
   mv "${part_path}" "${dest_path}"
 }
 
+# Invariant: stdout of this function carries ONLY the cache path, because callers
+# capture it with command substitution. Every diagnostic goes to stderr.
 ensure_cached_asset() {
   local cache_dir="$1"
   local url="$2"
@@ -217,7 +223,7 @@ ensure_cached_asset() {
     local current_size
     current_size="$(get_file_size "${cache_path}")"
     if [[ -n "${expected_size}" && "${current_size}" == "${expected_size}" ]]; then
-      echo "Cache hit for ${asset_name} (${current_size} bytes)"
+      echo "Cache hit for ${asset_name} (${current_size} bytes)" >&2
       echo "${cache_path}"
       return 0
     fi
@@ -234,6 +240,16 @@ ensure_cached_asset() {
   fi
 
   echo "${cache_path}"
+}
+
+require_cached_asset() {
+  local cache_path="$1"
+  local asset_name="$2"
+  if [[ -z "${cache_path}" || ! -f "${cache_path}" ]]; then
+    echo "Error: No usable cached file for ${asset_name} (got: '${cache_path}')" >&2
+    return 1
+  fi
+  return 0
 }
 
 generate_checksum_files() {

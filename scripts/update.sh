@@ -233,6 +233,9 @@ execute_update_pipeline() {
   gms_cache_path="$(ensure_cached_asset "${CACHE_DIR}" "${gms_url}" "${gms_name}" "${gms_size}")"
   vending_cache_path="$(ensure_cached_asset "${CACHE_DIR}" "${vending_url}" "${vending_name}" "${vending_size}")"
 
+  require_cached_asset "${gms_cache_path}" "${gms_name}"
+  require_cached_asset "${vending_cache_path}" "${vending_name}"
+
   local actual_gms_size actual_gms_sha actual_vending_size actual_vending_sha
   actual_gms_size="$(get_file_size "${gms_cache_path}")"
   actual_gms_sha="$(calculate_sha256 "${gms_cache_path}")"
