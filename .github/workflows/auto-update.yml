@@ -68,6 +68,8 @@ jobs:
 
       - name: Commit Metadata & Push Tag
         if: steps.detect.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           . ./versions.env
@@ -87,10 +89,15 @@ jobs:
 
           git add versions.env module.prop update.json CHANGELOG.md
           git commit -m "chore(microg): bump upstream microG to ${GMS_RELEASE_TAG}"
-          git tag -a "${MODULE_VERSION}" -m "Release ${MODULE_VERSION}"
 
           git push origin "${BRANCH}"
-          git push origin "${MODULE_VERSION}"
+
+          # Tag through the API: `git push` of a tag under GITHUB_TOKEN is rejected
+          # server-side ("remote rejected ... (failed)"), and an API-created ref does not
+          # re-trigger the tag workflows, so this job stays the only publisher.
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
+            -f ref="refs/tags/${MODULE_VERSION}" \
+            -f sha="$(git rev-parse HEAD)" > /dev/null
 
       - name: Check Existing Release Guard
         id: guard
